@@ -1,6 +1,7 @@
 import asyncio
 import os
 import shutil
+import subprocess
 from pathlib import Path
 from uuid import uuid4
 
@@ -29,15 +30,18 @@ class Orchestrator:
             run.status = "running"
             self.store.save_run(run)
             task_id = f"task_{uuid4().hex}"
-            process = await asyncio.create_subprocess_shell(
+            process = await asyncio.to_thread(
+                subprocess.run,
                 self.settings.agent_qc_worker_command,
                 cwd=workspace,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 env={**os.environ, "AGENT_QC_RUN_ID": run.run_id, "AGENT_QC_TASK_ID": task_id},
+                shell=True,
+                timeout=900,
+                check=False,
             )
-            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=900)
-            text = stdout.decode(errors="replace")
+            text = process.stdout.decode(errors="replace")
             verdict = "pass" if process.returncode == 0 else "fail"
             run.result = WorkerResult(task_id=task_id, run_id=run.run_id,
                                       execution_status="completed", verdict=verdict,
@@ -67,18 +71,23 @@ class Orchestrator:
             # Needed on shared/portable Windows volumes used by this local demo.
             clone_args += ["-c", f"safe.directory={(local_source / '.git').as_posix()}"]
         clone_args += ["clone", "--no-checkout", clone_url, str(workspace)]
-        proc = await asyncio.create_subprocess_exec(
-            *clone_args,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        proc = await asyncio.to_thread(
+            subprocess.run,
+            clone_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
         )
-        _, stderr = await proc.communicate()
         if proc.returncode:
-            raise RuntimeError(f"clone failed: {stderr.decode(errors='replace')}")
-        proc = await asyncio.create_subprocess_exec(
-            "git", "-c", f"safe.directory={workspace.as_posix()}",
-            "checkout", "--detach", ctx.revision.head_sha, cwd=workspace,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            raise RuntimeError(f"clone failed: {proc.stderr.decode(errors='replace')}")
+        proc = await asyncio.to_thread(
+            subprocess.run,
+            ["git", "-c", f"safe.directory={workspace.as_posix()}",
+             "checkout", "--detach", ctx.revision.head_sha],
+            cwd=workspace,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
         )
-        _, stderr = await proc.communicate()
         if proc.returncode:
-            raise RuntimeError(f"checkout failed: {stderr.decode(errors='replace')}")
+            raise RuntimeError(f"checkout failed: {proc.stderr.decode(errors='replace')}")
