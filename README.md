@@ -24,6 +24,8 @@ python scripts/send_demo_webhook.py --repo ../sample-app
 
 Script ký payload, gửi webhook, poll run và in verdict. Sửa `calculator.add` để trả kết quả sai, commit lại rồi chạy script lần nữa để thấy verdict `fail`.
 
+`AGENT_QC_WORKSPACE_DIR` mặc định nằm ngoài thư mục `qc-agent`; không chuyển nó vào trong source tree khi dùng `uvicorn --reload`, vì việc clone file Python có thể kích hoạt server restart.
+
 ## Kết nối GitHub thật
 
 1. Tạo GitHub App với permissions: Metadata read, Contents read, Pull requests read, Checks read/write.
@@ -51,4 +53,3 @@ AGENT_QC_DRY_RUN=false
 ## Giới hạn có chủ ý của demo
 
 Worker hiện chạy trực tiếp trên host. Trước production cần container sandbox, queue bền vững, timeout/concurrency policy, stale-run cancellation, artifact storage và secret manager. SQLite đã cung cấp delivery dedup và run persistence ở mức demo.
-
