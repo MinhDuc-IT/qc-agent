@@ -14,7 +14,11 @@ app/
 │   ├── planning.py
 │   └── orchestrator.py
 ├── infrastructure/         # outbound adapters implementing application ports
-│   ├── execution/workers.py
+│   ├── execution/
+│   │   ├── contracts.py
+│   │   ├── registry.py
+│   │   ├── runtime.py
+│   │   └── adapters/
 │   ├── github/client.py
 │   ├── github/webhook.py
 │   ├── persistence/sqlite.py
@@ -37,7 +41,10 @@ Application code accesses GitHub checks, persistence, source checkout and worker
 - `application/analysis.py`: deterministic language/project/config/diff discovery.
 - `domain/capabilities.py`: tool-independent quality capability catalog.
 - `application/planning.py`: repository intent and changes into versioned tasks.
-- `infrastructure/execution/workers.py`: trusted registry, argv execution and normalization.
+- `infrastructure/execution/contracts.py`: adapter and invocation contracts.
+- `infrastructure/execution/registry.py`: adapter discovery and selection only.
+- `infrastructure/execution/runtime.py`: timeout, environment and process lifecycle only.
+- `infrastructure/execution/adapters/`: one module per reusable tool/ecosystem adapter.
 - `domain/verdict.py`: tool-independent run aggregation.
 - `application/orchestrator.py`: lifecycle and DAG coordination only.
 - `infrastructure/github/client.py`: provider authentication and result publishing only.

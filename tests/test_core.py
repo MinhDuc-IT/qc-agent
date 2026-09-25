@@ -6,7 +6,9 @@ from app.application.analysis import RepositoryAnalyzer
 from app.application.planning import CapabilityPlanner, PolicyValidator
 from app.domain.models import normalize_pull_request
 from app.domain.verdict import VerdictEngine
-from app.infrastructure.execution.workers import WorkerExecutor, WorkerRegistry
+from app.infrastructure.execution.registry import WorkerRegistry
+from app.infrastructure.execution.runtime import RegisteredWorkerRuntime
+from app.domain.models import ProjectDescriptor, TaskTarget, WorkerTask
 from app.infrastructure.github.webhook import verify_webhook_signature
 
 
@@ -52,8 +54,7 @@ def test_generalized_pipeline_for_python_project(tmp_path):
     plan = PolicyValidator().validate(CapabilityPlanner().create_plan("run_test", analysis), analysis)
     assert [task.capability for task in plan.tasks] == ["functional.unit"]
     task = plan.tasks[0]
-    implementation = WorkerRegistry().resolve(task, analysis.projects[0])
-    result = WorkerExecutor().execute(task, analysis.projects[0], tmp_path, implementation)
+    result = RegisteredWorkerRuntime().execute(task, analysis.projects[0], tmp_path)
     aggregate = VerdictEngine().evaluate([result])
     assert result.worker_id == "python-pytest"
     assert result.verdict == "pass"
@@ -69,6 +70,31 @@ def test_planner_models_unsupported_capability_as_skipped(tmp_path):
     plan = CapabilityPlanner().create_plan("run_test", analysis)
     assert plan.tasks[0].capability == "performance.load"
     task = plan.tasks[0]
-    implementation = WorkerRegistry().resolve(task, analysis.projects[0])
-    result = WorkerExecutor().execute(task, analysis.projects[0], tmp_path, implementation)
+    result = RegisteredWorkerRuntime().execute(task, analysis.projects[0], tmp_path)
     assert result.verdict == "skipped"
+
+
+def test_registry_selects_build_system_specific_adapter():
+    task = WorkerTask(run_id="run_test", capability="functional.unit", objective="test",
+                      target=TaskTarget(project_id="java-app"))
+    project = ProjectDescriptor(id="java-app", language="java", build_system="maven")
+    adapter = WorkerRegistry().resolve(task, project)
+    assert adapter is not None
+    assert adapter.worker_id == "jvm-maven-test"
+    assert adapter.build_argv(task, project) == ("mvn", "--batch-mode", "test")
+
+
+def test_adapter_rejects_workspace_escape(tmp_path):
+    task = WorkerTask(run_id="run_test", capability="functional.unit", objective="test",
+                      target=TaskTarget(project_id="python-app"), scope={"project_root": "../outside"})
+    project = ProjectDescriptor(id="python-app", language="python", build_system="pip")
+    result = RegisteredWorkerRuntime().execute(task, project, tmp_path)
+    assert result.execution_status == "failed"
+    assert result.verdict == "unknown"
+    assert "repository-relative" in result.output
+
+
+def test_registry_exposes_worker_manifests():
+    manifests = WorkerRegistry().manifests()
+    assert any(item["capability"] == "security.sast" for item in manifests)
+    assert any(item["worker_id"] == "python-pytest" for item in manifests)

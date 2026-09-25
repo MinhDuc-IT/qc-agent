@@ -7,7 +7,7 @@ from ..application.orchestrator import Orchestrator
 from ..domain.models import QCRun, normalize_pull_request
 from ..infrastructure.github.client import GitHubClient
 from ..infrastructure.github.webhook import verify_webhook_signature
-from ..infrastructure.execution.workers import RegisteredWorkerRuntime
+from ..infrastructure.execution.runtime import RegisteredWorkerRuntime
 from ..infrastructure.persistence.sqlite import SqliteRunStore
 from ..infrastructure.settings import get_settings
 from ..infrastructure.source.git import GitRepositoryManager
