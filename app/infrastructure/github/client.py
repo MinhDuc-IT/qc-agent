@@ -83,7 +83,15 @@ class GitHubClient:
         if not run.results:
             return "No compatible QC tasks were selected."
         icons = {"pass": "✅", "fail": "❌", "warning": "⚠️", "skipped": "⏭️", "unknown": "❓"}
-        lines = ["| Capability | Worker | Result | Summary |", "|---|---|---|---|"]
+        lines = [f"**Agent mode:** `{run.agent_mode}`"]
+        if run.agent_plan and run.agent_plan.summary:
+            lines += ["", f"**Agent risk assessment:** {run.agent_plan.summary}"]
+        if run.agent_plan and run.agent_plan.risks:
+            lines += [
+                *[f"- **{risk.severity} / {risk.category}:** {risk.description}"
+                  for risk in run.agent_plan.risks[:10]],
+            ]
+        lines += ["", "| Capability | Worker | Result | Summary |", "|---|---|---|---|"]
         for result in run.results:
             counts = ", ".join(f"{value} {key}" for key, value in result.summary.items())
             detail = counts
@@ -93,4 +101,11 @@ class GitHubClient:
                 f"| `{result.capability}` | `{result.worker_id or 'unavailable'}` | "
                 f"{icons.get(result.verdict, '')} {result.verdict} | {detail[:500]} |"
             )
+        if run.agent_result_analysis:
+            lines += ["", "### Agent analysis", "", run.agent_result_analysis.summary]
+            for root_cause in run.agent_result_analysis.root_causes[:10]:
+                lines.append(
+                    f"- `{root_cause.task_id}` ({root_cause.confidence:.0%}): "
+                    f"{root_cause.root_cause} — {root_cause.remediation}"
+                )
         return "\n".join(lines)

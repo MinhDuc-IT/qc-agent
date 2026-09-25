@@ -23,6 +23,7 @@ class RepositoryAnalyzer:
     def analyze(self, workspace: Path, base_sha: str, head_sha: str) -> SourceAnalysis:
         return SourceAnalysis(
             changed_files=self._changed_files(workspace, base_sha, head_sha),
+            diff_patch=self._diff_patch(workspace, base_sha, head_sha),
             projects=self._projects(workspace),
             config=self._config(workspace),
         )
@@ -35,6 +36,16 @@ class RepositoryAnalyzer:
         if process.returncode == 0:
             return [line.strip().replace("\\", "/") for line in process.stdout.splitlines() if line.strip()]
         return []
+
+    def _diff_patch(self, workspace: Path, base_sha: str, head_sha: str) -> str:
+        process = subprocess.run(
+            ["git", "-c", f"safe.directory={workspace.as_posix()}", "diff", "--unified=3", base_sha, head_sha],
+            cwd=workspace, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        )
+        if process.returncode:
+            return ""
+        # Bound model input and avoid decoding failures; full diff remains available in Git.
+        return process.stdout[:100_000].decode(errors="replace")
 
     def _projects(self, workspace: Path) -> list[ProjectDescriptor]:
         found: dict[tuple[str, str], ProjectDescriptor] = {}

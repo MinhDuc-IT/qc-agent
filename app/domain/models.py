@@ -80,6 +80,7 @@ class ProjectDescriptor(BaseModel):
 class SourceAnalysis(BaseModel):
     schema_version: str = "1.0"
     changed_files: list[str] = Field(default_factory=list)
+    diff_patch: str = ""
     projects: list[ProjectDescriptor] = Field(default_factory=list)
     config: dict[str, Any] = Field(default_factory=dict)
 
@@ -108,6 +109,45 @@ class WorkerTask(BaseModel):
 class ExecutionPlan(BaseModel):
     schema_version: str = "1.0"
     tasks: list[WorkerTask] = Field(default_factory=list)
+
+
+class RiskAssessment(BaseModel):
+    category: str
+    severity: Literal["critical", "high", "medium", "low", "info"]
+    description: str
+    evidence: list[str] = Field(default_factory=list)
+
+
+class AgentTaskScope(BaseModel):
+    paths: list[str] = Field(default_factory=list)
+    scenarios: list[str] = Field(default_factory=list)
+
+
+class AgentTaskProposal(BaseModel):
+    project_id: str
+    capability: str
+    reason: str
+    scope: AgentTaskScope = Field(default_factory=AgentTaskScope)
+
+
+class AgentPlanProposal(BaseModel):
+    risks: list[RiskAssessment] = Field(default_factory=list)
+    tasks: list[AgentTaskProposal] = Field(default_factory=list)
+    summary: str = ""
+
+
+class RootCauseAnalysis(BaseModel):
+    task_id: str
+    root_cause: str
+    confidence: float = Field(ge=0, le=1)
+    remediation: str
+    affected_files: list[str] = Field(default_factory=list)
+
+
+class AgentResultAnalysis(BaseModel):
+    summary: str
+    root_causes: list[RootCauseAnalysis] = Field(default_factory=list)
+    residual_risks: list[str] = Field(default_factory=list)
 
 
 class WorkerResult(BaseModel):
@@ -145,9 +185,13 @@ class QCRun(BaseModel):
     trigger_context: TriggerContext
     check_run_id: int | None = None
     analysis: SourceAnalysis | None = None
+    agent_mode: Literal["active", "fallback", "disabled"] = "disabled"
+    agent_error: str | None = None
+    agent_plan: AgentPlanProposal | None = None
     plan: ExecutionPlan | None = None
     results: list[WorkerResult] = Field(default_factory=list)
     aggregate: AggregateResult | None = None
+    agent_result_analysis: AgentResultAnalysis | None = None
     # Backward-compatible alias for clients of the original single-worker demo.
     result: WorkerResult | None = None
     error: str | None = None

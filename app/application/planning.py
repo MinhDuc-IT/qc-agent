@@ -1,7 +1,7 @@
 from typing import Any
 
 from ..domain.capabilities import CATALOG
-from ..domain.models import ExecutionPlan, SourceAnalysis, TaskTarget, WorkerTask
+from ..domain.models import AgentPlanProposal, ExecutionPlan, SourceAnalysis, TaskTarget, WorkerTask
 
 
 LANGUAGE_FILE_SUFFIXES = {
@@ -32,6 +32,21 @@ class CapabilityPlanner:
                         scope={"project_root": project.root},
                         timeout_seconds=descriptor.default_timeout,
                     ))
+        return ExecutionPlan(tasks=self._deduplicate(tasks))
+
+    def merge_agent_proposal(self, run_id: str, baseline: ExecutionPlan,
+                             proposal: AgentPlanProposal) -> ExecutionPlan:
+        tasks = list(baseline.tasks)
+        for item in proposal.tasks:
+            descriptor = CATALOG.get(item.capability)
+            if descriptor is None:
+                continue
+            tasks.append(WorkerTask(
+                run_id=run_id, capability=item.capability, objective=item.reason,
+                target=TaskTarget(type=descriptor.target_types[0], project_id=item.project_id),
+                scope=item.scope.model_dump(exclude_defaults=True),
+                timeout_seconds=descriptor.default_timeout,
+            ))
         return ExecutionPlan(tasks=self._deduplicate(tasks))
 
     def _configured_capabilities(self, config: dict[str, Any]) -> set[str]:

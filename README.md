@@ -33,6 +33,23 @@ quality:
 
 The API run payload exposes `analysis`, `plan`, `results`, and `aggregate`, making planner decisions inspectable. The control-plane contracts are generalized, but the current executor still runs on the host. Add container/VM isolation before accepting untrusted public-fork code.
 
+## Agentic mode
+
+When `OPENAI_API_KEY` is configured, two model-backed agents run on the critical path:
+
+- `OpenAIPlanningAgent` reads project metadata, repository policy and the bounded PR diff, then returns structured risks and capability proposals.
+- `OpenAIResultAnalysisAgent` reads normalized worker results and produces root-cause hypotheses, remediation and residual risks.
+
+```env
+AGENT_QC_AGENT_ENABLED=true
+OPENAI_API_KEY=<server-side-api-key>
+OPENAI_MODEL=gpt-6-astra
+```
+
+The model never emits executable commands. Its proposal is schema-validated, merged with mandatory deterministic checks and passed through `PolicyValidator`. The deterministic `VerdictEngine` remains the merge-gate authority. Without an API key, the run explicitly records `agent_mode=fallback`.
+
+PR diffs are sent to the configured model provider in agentic mode. Apply organization data-governance policy before enabling it for private or regulated repositories.
+
 ## Demo local (không cần GitHub App)
 
 Yêu cầu Python 3.11+ và Git. Từ thư mục `qc-agent`:

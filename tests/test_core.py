@@ -8,7 +8,11 @@ from app.domain.models import normalize_pull_request
 from app.domain.verdict import VerdictEngine
 from app.infrastructure.execution.registry import WorkerRegistry
 from app.infrastructure.execution.runtime import RegisteredWorkerRuntime
-from app.domain.models import ProjectDescriptor, TaskTarget, WorkerTask
+from app.infrastructure.agents.openai import OpenAIPlanningAgent
+from app.domain.models import (
+    AgentPlanProposal, AgentTaskProposal, ProjectDescriptor, RiskAssessment,
+    TaskTarget, WorkerTask,
+)
 from app.infrastructure.github.webhook import verify_webhook_signature
 
 
@@ -98,3 +102,43 @@ def test_registry_exposes_worker_manifests():
     manifests = WorkerRegistry().manifests()
     assert any(item["capability"] == "security.sast" for item in manifests)
     assert any(item["worker_id"] == "python-pytest" for item in manifests)
+
+
+def test_agent_proposal_extends_baseline_but_policy_rejects_invalid_tasks(tmp_path):
+    (tmp_path / "requirements.txt").write_text("pytest\n", encoding="utf-8")
+    analysis = RepositoryAnalyzer().analyze(tmp_path, "a", "b")
+    planner = CapabilityPlanner()
+    baseline = planner.create_plan("run_agent", analysis)
+    project_id = analysis.projects[0].id
+    proposal = AgentPlanProposal(
+        risks=[RiskAssessment(category="injection", severity="high",
+                              description="Input reaches a sensitive sink")],
+        tasks=[
+            AgentTaskProposal(project_id=project_id, capability="security.sast",
+                              reason="Inspect the suspected injection flow"),
+            AgentTaskProposal(project_id="invented-project", capability="performance.load",
+                              reason="Invalid model suggestion"),
+        ],
+        summary="A semantic security review is warranted.",
+    )
+    merged = planner.merge_agent_proposal("run_agent", baseline, proposal)
+    validated = PolicyValidator().validate(merged, analysis)
+    assert {task.capability for task in validated.tasks} == {"functional.unit", "security.sast"}
+    assert all(task.target.project_id == project_id for task in validated.tasks)
+
+
+def test_openai_planning_agent_uses_structured_output(tmp_path):
+    (tmp_path / "requirements.txt").write_text("pytest\n", encoding="utf-8")
+    analysis = RepositoryAnalyzer().analyze(tmp_path, "a", "b")
+    expected = AgentPlanProposal(summary="No additional risk-based checks required.")
+
+    class FakeResponses:
+        def parse(self, **kwargs):
+            assert kwargs["text_format"] is AgentPlanProposal
+            assert kwargs["model"] == "test-model"
+            return type("Response", (), {"output_parsed": expected})()
+
+    agent = OpenAIPlanningAgent.__new__(OpenAIPlanningAgent)
+    agent.model = "test-model"
+    agent.client = type("Client", (), {"responses": FakeResponses()})()
+    assert agent.propose(analysis) == expected

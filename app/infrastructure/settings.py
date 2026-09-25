@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     # Runtime clones must live outside the source tree watched by uvicorn --reload.
     agent_qc_workspace_dir: Path = Path("../.agent-qc-workspaces")
     agent_qc_dry_run: bool = True
+    agent_qc_agent_enabled: bool = True
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-6-astra"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

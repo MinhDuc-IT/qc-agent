@@ -4,6 +4,7 @@ import json
 from fastapi import FastAPI, Header, HTTPException, Request, status
 
 from ..application.orchestrator import Orchestrator
+from ..application.agents import FallbackPlanningAgent, FallbackResultAnalysisAgent
 from ..domain.models import QCRun, normalize_pull_request
 from ..infrastructure.github.client import GitHubClient
 from ..infrastructure.github.webhook import verify_webhook_signature
@@ -11,13 +12,20 @@ from ..infrastructure.execution.runtime import RegisteredWorkerRuntime
 from ..infrastructure.persistence.sqlite import SqliteRunStore
 from ..infrastructure.settings import get_settings
 from ..infrastructure.source.git import GitRepositoryManager
+from ..infrastructure.agents.openai import OpenAIPlanningAgent, OpenAIResultAnalysisAgent
 
 settings = get_settings()
 store = SqliteRunStore(settings.agent_qc_data_dir)
 github = GitHubClient(settings.github_app_id, settings.github_private_key_path, settings.agent_qc_dry_run)
 source = GitRepositoryManager(settings.agent_qc_workspace_dir, github, settings.agent_qc_dry_run)
 workers = RegisteredWorkerRuntime()
-orchestrator = Orchestrator(store, github, source, workers)
+if settings.agent_qc_agent_enabled and settings.openai_api_key:
+    planning_agent = OpenAIPlanningAgent(settings.openai_api_key, settings.openai_model)
+    result_agent = OpenAIResultAnalysisAgent(settings.openai_api_key, settings.openai_model)
+else:
+    planning_agent = FallbackPlanningAgent()
+    result_agent = FallbackResultAnalysisAgent()
+orchestrator = Orchestrator(store, github, source, workers, planning_agent, result_agent)
 app = FastAPI(title="Agent-QC", version="0.1.0")
 
 

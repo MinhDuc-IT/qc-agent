@@ -10,6 +10,7 @@ app/
 │   └── verdict.py
 ├── application/            # use cases; depends on domain and ports
 │   ├── ports.py
+│   ├── agents.py
 │   ├── analysis.py
 │   ├── planning.py
 │   └── orchestrator.py
@@ -19,6 +20,7 @@ app/
 │   │   ├── registry.py
 │   │   ├── runtime.py
 │   │   └── adapters/
+│   ├── agents/openai.py
 │   ├── github/client.py
 │   ├── github/webhook.py
 │   ├── persistence/sqlite.py
@@ -35,6 +37,24 @@ API/Infrastructure -> Application -> Domain
 ```
 
 Application code accesses GitHub checks, persistence, source checkout and worker execution through protocols in `application/ports.py`. Concrete adapters are assembled only in `api/http.py`.
+
+## Agentic control loop
+
+```text
+Deterministic repository analysis
+        ↓
+PlanningAgent: diff → risks + capability proposals
+        ↓
+Schema validation + deterministic baseline + PolicyValidator
+        ↓
+Trusted tool adapters execute the accepted plan
+        ↓
+Deterministic VerdictEngine
+        ↓
+ResultAnalysisAgent: findings → root cause + remediation
+```
+
+`OpenAIPlanningAgent` and `OpenAIResultAnalysisAgent` use structured model outputs. Model output cannot contain executable commands and cannot override the verdict. Fallback agents keep the system available while exposing `agent_mode=fallback`; they do not masquerade as model-backed execution.
 
 ## Boundaries
 
