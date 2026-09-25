@@ -1,7 +1,7 @@
 from typing import Any
 
-from .capabilities import CATALOG
-from .contracts import ExecutionPlan, SourceAnalysis, TaskTarget, WorkerTask
+from ..domain.capabilities import CATALOG
+from ..domain.models import ExecutionPlan, SourceAnalysis, TaskTarget, WorkerTask
 
 
 LANGUAGE_FILE_SUFFIXES = {

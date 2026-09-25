@@ -2,12 +2,12 @@ import hashlib
 import hmac
 import subprocess
 
-from app.contracts import normalize_pull_request
-from app.analyzer import RepositoryAnalyzer
-from app.planner import CapabilityPlanner, PolicyValidator
-from app.security import verify_webhook_signature
-from app.verdict import VerdictEngine
-from app.workers import WorkerExecutor, WorkerRegistry
+from app.application.analysis import RepositoryAnalyzer
+from app.application.planning import CapabilityPlanner, PolicyValidator
+from app.domain.models import normalize_pull_request
+from app.domain.verdict import VerdictEngine
+from app.infrastructure.execution.workers import WorkerExecutor, WorkerRegistry
+from app.infrastructure.github.webhook import verify_webhook_signature
 
 
 def payload():

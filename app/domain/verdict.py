@@ -1,4 +1,4 @@
-from .contracts import AggregateResult, WorkerResult
+from .models import AggregateResult, WorkerResult
 
 
 class VerdictEngine:

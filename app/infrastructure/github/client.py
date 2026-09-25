@@ -4,7 +4,7 @@ from pathlib import Path
 import httpx
 import jwt
 
-from .contracts import QCRun
+from ...domain.models import QCRun
 
 
 class GitHubClient:

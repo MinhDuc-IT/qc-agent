@@ -5,7 +5,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from .contracts import Finding, ProjectDescriptor, WorkerResult, WorkerTask
+from ...domain.models import Finding, ProjectDescriptor, WorkerResult, WorkerTask
 
 
 @dataclass(frozen=True)
@@ -109,3 +109,15 @@ class WorkerExecutor:
                                     message=f"Failure reported at {path}:{line}", path=path,
                                     start_line=int(line)))
         return findings[:50]
+
+
+class RegisteredWorkerRuntime:
+    """Infrastructure facade hiding registry and process execution from the use case."""
+
+    def __init__(self, registry: WorkerRegistry | None = None, executor: WorkerExecutor | None = None):
+        self.registry = registry or WorkerRegistry()
+        self.executor = executor or WorkerExecutor()
+
+    def execute(self, task: WorkerTask, project: ProjectDescriptor, workspace: Path) -> WorkerResult:
+        implementation = self.registry.resolve(task, project)
+        return self.executor.execute(task, project, workspace, implementation)

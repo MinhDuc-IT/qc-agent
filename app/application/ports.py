@@ -1,0 +1,23 @@
+from pathlib import Path
+from typing import Protocol
+
+from ..domain.models import ProjectDescriptor, QCRun, WorkerResult, WorkerTask
+
+
+class RunStore(Protocol):
+    def save_run(self, run: QCRun) -> None: ...
+    def get_run(self, run_id: str) -> QCRun | None: ...
+
+
+class CheckPublisher(Protocol):
+    async def create_check(self, run: QCRun) -> int | None: ...
+    async def complete_check(self, run: QCRun) -> None: ...
+
+
+class SourceManager(Protocol):
+    async def prepare(self, run: QCRun) -> Path: ...
+    def cleanup(self, workspace: Path) -> None: ...
+
+
+class WorkerRuntime(Protocol):
+    def execute(self, task: WorkerTask, project: ProjectDescriptor, workspace: Path) -> WorkerResult: ...

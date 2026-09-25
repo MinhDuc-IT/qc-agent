@@ -4,7 +4,7 @@ from typing import Any
 
 import yaml
 
-from .contracts import ProjectDescriptor, SourceAnalysis
+from ..domain.models import ProjectDescriptor, SourceAnalysis
 
 
 PROJECT_MARKERS = {

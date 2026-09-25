@@ -3,27 +3,45 @@
 The core model is `risk -> capability -> target -> worker -> result -> policy verdict`.
 
 ```text
-GitHub Adapter
-  -> RepositoryAnalyzer
-  -> CapabilityPlanner
-  -> PolicyValidator
-  -> ExecutionPlan (DAG)
-  -> WorkerRegistry
-  -> WorkerExecutor
-  -> WorkerResult[]
-  -> VerdictEngine
-  -> GitHub Checks Publisher
+app/
+├── domain/                 # pure contracts, capabilities and verdict rules
+│   ├── models.py
+│   ├── capabilities.py
+│   └── verdict.py
+├── application/            # use cases; depends on domain and ports
+│   ├── ports.py
+│   ├── analysis.py
+│   ├── planning.py
+│   └── orchestrator.py
+├── infrastructure/         # outbound adapters implementing application ports
+│   ├── execution/workers.py
+│   ├── github/client.py
+│   ├── github/webhook.py
+│   ├── persistence/sqlite.py
+│   ├── source/git.py
+│   └── settings.py
+├── api/http.py             # inbound FastAPI adapter and composition root
+└── main.py                 # stable ASGI entrypoint
 ```
+
+Dependency direction:
+
+```text
+API/Infrastructure -> Application -> Domain
+```
+
+Application code accesses GitHub checks, persistence, source checkout and worker execution through protocols in `application/ports.py`. Concrete adapters are assembled only in `api/http.py`.
 
 ## Boundaries
 
-- `analyzer.py`: deterministic language/project/config/diff discovery.
-- `capabilities.py`: tool-independent quality capability catalog.
-- `planner.py`: repository intent and changes into versioned tasks.
-- `workers.py`: trusted implementation registry, argv execution and normalization.
-- `verdict.py`: tool-independent run aggregation.
-- `orchestrator.py`: lifecycle and DAG coordination only.
-- `github.py`: provider authentication and result publishing only.
+- `application/analysis.py`: deterministic language/project/config/diff discovery.
+- `domain/capabilities.py`: tool-independent quality capability catalog.
+- `application/planning.py`: repository intent and changes into versioned tasks.
+- `infrastructure/execution/workers.py`: trusted registry, argv execution and normalization.
+- `domain/verdict.py`: tool-independent run aggregation.
+- `application/orchestrator.py`: lifecycle and DAG coordination only.
+- `infrastructure/github/client.py`: provider authentication and result publishing only.
+- `infrastructure/source/git.py`: immutable checkout and workspace cleanup.
 
 The planner never emits a shell command. A worker adapter maps a validated task to an argument list and the executor uses `shell=False`.
 

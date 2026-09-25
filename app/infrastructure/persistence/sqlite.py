@@ -2,10 +2,10 @@ import json
 import sqlite3
 from pathlib import Path
 
-from .contracts import QCRun
+from ...domain.models import QCRun
 
 
-class Store:
+class SqliteRunStore:
     def __init__(self, data_dir: Path):
         data_dir.mkdir(parents=True, exist_ok=True)
         self.path = data_dir / "agent-qc.sqlite3"
@@ -43,3 +43,6 @@ class Store:
             row = db.execute("SELECT payload FROM runs WHERE run_id = ?", (run_id,)).fetchone()
         return QCRun.model_validate(json.loads(row[0])) if row else None
 
+
+# Compatibility for callers that imported the original demo name.
+Store = SqliteRunStore
