@@ -21,6 +21,10 @@ app/
 │   │   ├── runtime.py
 │   │   └── adapters/
 │   ├── agents/openai.py
+│   ├── external_agents/
+│   │   ├── registry.py
+│   │   ├── runtime.py
+│   │   └── http.py
 │   ├── github/client.py
 │   ├── github/webhook.py
 │   ├── persistence/sqlite.py
@@ -55,6 +59,10 @@ ResultAnalysisAgent: findings → root cause + remediation
 ```
 
 `OpenAIPlanningAgent` and `OpenAIResultAnalysisAgent` use structured model outputs. Model output cannot contain executable commands and cannot override the verdict. Fallback agents keep the system available while exposing `agent_mode=fallback`; they do not masquerade as model-backed execution.
+
+## Agent-first execution
+
+`HybridWorkerRuntime` routes accepted tasks to compatible external specialized agents before considering local tool adapters. External agents own their internal tools and reasoning. Tool adapters remain available for narrow deterministic checks explicitly requested by the Orchestrator and as policy-controlled fallback.
 
 ## Boundaries
 

@@ -33,6 +33,7 @@ class CommandAdapter:
         return WorkerResult(
             task_id=task.task_id, run_id=task.run_id, capability=task.capability,
             worker_id=self.worker_id, implementation=self.implementation,
+            worker_kind="tool",
             execution_status="completed", verdict="pass" if exit_code == 0 else "fail",
             exit_code=exit_code, output=output, summary=self._parse_counts(output),
             findings=self._parse_findings(output),

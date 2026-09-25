@@ -40,6 +40,7 @@ class RegisteredWorkerRuntime:
             return WorkerResult(
                 task_id=task.task_id, run_id=task.run_id, capability=task.capability,
                 worker_id=adapter.worker_id, implementation=adapter.implementation,
+                worker_kind="tool",
                 execution_status="timed_out", verdict="unknown", output=output,
             )
         except OSError as exc:
@@ -49,6 +50,7 @@ class RegisteredWorkerRuntime:
     def _skipped(task: WorkerTask, reason: str) -> WorkerResult:
         return WorkerResult(
             task_id=task.task_id, run_id=task.run_id, capability=task.capability,
+            worker_kind="tool",
             execution_status="completed", verdict="skipped", output=reason,
             summary={"reason": reason},
         )
@@ -58,5 +60,6 @@ class RegisteredWorkerRuntime:
         return WorkerResult(
             task_id=task.task_id, run_id=task.run_id, capability=task.capability,
             worker_id=worker_id, implementation=implementation,
+            worker_kind="tool",
             execution_status="failed", verdict="unknown", output=reason,
         )

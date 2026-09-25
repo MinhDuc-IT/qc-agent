@@ -44,6 +44,7 @@ class CapabilityPlanner:
             tasks.append(WorkerTask(
                 run_id=run_id, capability=item.capability, objective=item.reason,
                 target=TaskTarget(type=descriptor.target_types[0], project_id=item.project_id),
+                execution_preference=item.execution_preference,
                 scope=item.scope.model_dump(exclude_defaults=True),
                 timeout_seconds=descriptor.default_timeout,
             ))

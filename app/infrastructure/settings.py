@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     agent_qc_agent_enabled: bool = True
     openai_api_key: str | None = None
     openai_model: str = "gpt-6-astra"
+    agent_qc_external_agents_file: Path | None = Path("external-agents.yaml")
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

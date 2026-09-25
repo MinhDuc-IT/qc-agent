@@ -4,5 +4,5 @@ __pycache__/
 .pytest_cache/
 .data/
 .workspaces/
+external-agents.yaml
 *.pyc
-

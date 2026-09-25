@@ -50,6 +50,18 @@ The model never emits executable commands. Its proposal is schema-validated, mer
 
 PR diffs are sent to the configured model provider in agentic mode. Apply organization data-governance policy before enabling it for private or regulated repositories.
 
+## External testing agents
+
+External specialized agents are the primary worker path. Copy `external-agents.example.yaml` to `external-agents.yaml` and register self-hosted Functional, Integration, API, UI, Performance, Security, or AI Evaluation agents.
+
+Each planned task has an execution preference:
+
+- `auto`: use a matching external agent first, then an allowed tool fallback.
+- `external_agent`: require an external agent and fail if none is registered.
+- `tool`: call the trusted local tool adapter directly when the Orchestrator decides an agent loop is unnecessary.
+
+The registry can be inspected at `GET /api/v1/agents`. External HTTP agents implement `POST /v1/tasks`, `GET /v1/tasks/{run_id}`, and `DELETE /v1/tasks/{run_id}`. See `docs/external-agent-contract.md`.
+
 ## Demo local (không cần GitHub App)
 
 Yêu cầu Python 3.11+ và Git. Từ thư mục `qc-agent`:

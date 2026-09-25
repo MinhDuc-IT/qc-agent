@@ -100,6 +100,7 @@ class WorkerTask(BaseModel):
     target: TaskTarget
     worker_id: str | None = None
     implementation: str | None = None
+    execution_preference: Literal["auto", "external_agent", "tool"] = "auto"
     scope: dict[str, Any] = Field(default_factory=dict)
     parameters: dict[str, Any] = Field(default_factory=dict)
     depends_on: list[str] = Field(default_factory=list)
@@ -127,6 +128,7 @@ class AgentTaskProposal(BaseModel):
     project_id: str
     capability: str
     reason: str
+    execution_preference: Literal["auto", "external_agent", "tool"] = "auto"
     scope: AgentTaskScope = Field(default_factory=AgentTaskScope)
 
 
@@ -157,6 +159,7 @@ class WorkerResult(BaseModel):
     capability: str = "functional.unit"
     worker_id: str | None = None
     implementation: str | None = None
+    worker_kind: Literal["external_agent", "tool", "managed_agent"] | None = None
     execution_status: Literal["completed", "failed", "cancelled", "timed_out"]
     verdict: Literal["pass", "fail", "warning", "skipped", "unknown"]
     exit_code: int | None = None
@@ -175,6 +178,25 @@ class AggregateResult(BaseModel):
     tasks_warning: int = 0
     tasks_skipped: int = 0
     execution_errors: int = 0
+
+
+class ExternalAgentManifest(BaseModel):
+    schema_version: str = "1.0"
+    agent_id: str
+    name: str
+    version: str
+    capabilities: list[str]
+    supported_targets: list[str]
+    transport: Literal["http"] = "http"
+    endpoint: str
+    timeout_seconds: int = 1800
+    fallback_to_tools: bool = True
+
+
+class ExternalAgentRun(BaseModel):
+    agent_id: str
+    external_run_id: str
+    status: Literal["queued", "running", "completed", "failed", "cancelled", "timed_out"]
 
 
 class QCRun(BaseModel):

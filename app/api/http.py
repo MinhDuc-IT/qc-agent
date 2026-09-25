@@ -9,6 +9,9 @@ from ..domain.models import QCRun, normalize_pull_request
 from ..infrastructure.github.client import GitHubClient
 from ..infrastructure.github.webhook import verify_webhook_signature
 from ..infrastructure.execution.runtime import RegisteredWorkerRuntime
+from ..infrastructure.execution.hybrid import HybridWorkerRuntime
+from ..infrastructure.external_agents.registry import ExternalAgentRegistry
+from ..infrastructure.external_agents.runtime import ExternalAgentRuntime
 from ..infrastructure.persistence.sqlite import SqliteRunStore
 from ..infrastructure.settings import get_settings
 from ..infrastructure.source.git import GitRepositoryManager
@@ -18,7 +21,9 @@ settings = get_settings()
 store = SqliteRunStore(settings.agent_qc_data_dir)
 github = GitHubClient(settings.github_app_id, settings.github_private_key_path, settings.agent_qc_dry_run)
 source = GitRepositoryManager(settings.agent_qc_workspace_dir, github, settings.agent_qc_dry_run)
-workers = RegisteredWorkerRuntime()
+external_agent_registry = ExternalAgentRegistry.from_yaml(settings.agent_qc_external_agents_file)
+external_agent_runtime = ExternalAgentRuntime(external_agent_registry)
+workers = HybridWorkerRuntime(external_agent_runtime, RegisteredWorkerRuntime())
 if settings.agent_qc_agent_enabled and settings.openai_api_key:
     planning_agent = OpenAIPlanningAgent(settings.openai_api_key, settings.openai_model)
     result_agent = OpenAIResultAnalysisAgent(settings.openai_api_key, settings.openai_model)
@@ -32,6 +37,12 @@ app = FastAPI(title="Agent-QC", version="0.1.0")
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/v1/agents")
+def list_external_agents():
+    return {"agents": [manifest.model_dump(mode="json")
+                       for manifest in external_agent_registry.manifests]}
 
 
 @app.get("/api/v1/runs/{run_id}")

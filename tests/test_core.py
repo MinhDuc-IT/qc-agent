@@ -8,10 +8,13 @@ from app.domain.models import normalize_pull_request
 from app.domain.verdict import VerdictEngine
 from app.infrastructure.execution.registry import WorkerRegistry
 from app.infrastructure.execution.runtime import RegisteredWorkerRuntime
+from app.infrastructure.execution.hybrid import HybridWorkerRuntime
+from app.infrastructure.external_agents.registry import ExternalAgentRegistry
+from app.infrastructure.external_agents.runtime import ExternalAgentRuntime
 from app.infrastructure.agents.openai import OpenAIPlanningAgent
 from app.domain.models import (
     AgentPlanProposal, AgentTaskProposal, ProjectDescriptor, RiskAssessment,
-    TaskTarget, WorkerTask,
+    ExternalAgentManifest, TaskTarget, WorkerResult, WorkerTask,
 )
 from app.infrastructure.github.webhook import verify_webhook_signature
 
@@ -142,3 +145,41 @@ def test_openai_planning_agent_uses_structured_output(tmp_path):
     agent.model = "test-model"
     agent.client = type("Client", (), {"responses": FakeResponses()})()
     assert agent.propose(analysis) == expected
+
+
+def test_hybrid_runtime_prefers_external_agent(tmp_path):
+    manifest = ExternalAgentManifest(
+        agent_id="functional-agent", name="Functional Agent", version="1.0.0",
+        capabilities=["functional.unit"], supported_targets=["source_tree"],
+        endpoint="http://agent.invalid",
+    )
+
+    class FakeTransport:
+        def execute(self, manifest, task, project, workspace):
+            return WorkerResult(
+                task_id=task.task_id, run_id=task.run_id, capability=task.capability,
+                worker_id=manifest.agent_id, worker_kind="external_agent",
+                execution_status="completed", verdict="pass",
+            )
+
+    external = ExternalAgentRuntime(ExternalAgentRegistry([manifest]), FakeTransport())
+    hybrid = HybridWorkerRuntime(external, RegisteredWorkerRuntime())
+    task = WorkerTask(run_id="run_external", capability="functional.unit", objective="test",
+                      target=TaskTarget(project_id="python-app"))
+    project = ProjectDescriptor(id="python-app", language="python", build_system="pip")
+    result = hybrid.execute(task, project, tmp_path)
+    assert result.worker_kind == "external_agent"
+    assert result.worker_id == "functional-agent"
+
+
+def test_hybrid_runtime_can_call_tool_directly(tmp_path):
+    hybrid = HybridWorkerRuntime(
+        ExternalAgentRuntime(ExternalAgentRegistry([])), RegisteredWorkerRuntime()
+    )
+    (tmp_path / "test_ok.py").write_text("def test_ok(): assert True\n", encoding="utf-8")
+    task = WorkerTask(run_id="run_tool", capability="functional.unit", objective="test",
+                      execution_preference="tool", target=TaskTarget(project_id="python-app"))
+    project = ProjectDescriptor(id="python-app", language="python", build_system="pip")
+    result = hybrid.execute(task, project, tmp_path)
+    assert result.worker_kind == "tool"
+    assert result.verdict == "pass"

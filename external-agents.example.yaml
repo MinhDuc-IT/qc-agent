@@ -1,0 +1,27 @@
+version: "1"
+agents:
+  - agent_id: functional-testing-agent
+    name: Functional Testing Agent
+    version: 1.0.0
+    capabilities:
+      - functional.unit
+      - functional.integration
+    supported_targets:
+      - source_tree
+    transport: http
+    endpoint: http://functional-agent:8101
+    timeout_seconds: 1800
+    fallback_to_tools: true
+
+  - agent_id: performance-testing-agent
+    name: Performance Testing Agent
+    version: 1.0.0
+    capabilities:
+      - performance.benchmark
+      - performance.load
+    supported_targets:
+      - http_service
+    transport: http
+    endpoint: http://performance-agent:8102
+    timeout_seconds: 1800
+    fallback_to_tools: false
