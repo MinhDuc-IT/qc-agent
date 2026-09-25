@@ -50,14 +50,47 @@ class GitHubClient:
             return
         ctx = run.trigger_context
         token = await self.installation_token(ctx.installation.id)
-        conclusion = "success" if run.verdict == "pass" else "failure"
-        output = (run.result.output if run.result else run.error or "No result")[-60000:]
+        conclusion = {
+            "pass": "success", "fail": "failure", "warning": "neutral",
+            "skipped": "skipped", "unknown": "failure",
+        }.get(run.verdict, "failure")
+        output = self._summary(run)
+        annotations = []
+        for result in run.results:
+            for finding in result.findings:
+                if finding.path and finding.start_line:
+                    annotations.append({
+                        "path": finding.path, "start_line": finding.start_line,
+                        "end_line": finding.start_line,
+                        "annotation_level": "failure" if finding.severity in {"critical", "high"} else "warning",
+                        "message": finding.message[:65535], "title": finding.title[:255],
+                    })
         async with httpx.AsyncClient(base_url="https://api.github.com") as client:
             response = await client.patch(
                 f"/repos/{ctx.repository.full_name}/check-runs/{run.check_run_id}",
                 headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
                 json={"status": "completed", "conclusion": conclusion,
-                      "output": {"title": f"Agent-QC: {run.verdict}", "summary": output or "Worker completed."}},
+                      "output": {"title": f"Agent-QC: {run.verdict}",
+                                 "summary": output[:65535] or "No QC tasks were selected.",
+                                 "annotations": annotations[:50]}},
             )
             response.raise_for_status()
 
+    @staticmethod
+    def _summary(run: QCRun) -> str:
+        if run.error:
+            return f"Infrastructure error: `{run.error}`"
+        if not run.results:
+            return "No compatible QC tasks were selected."
+        icons = {"pass": "✅", "fail": "❌", "warning": "⚠️", "skipped": "⏭️", "unknown": "❓"}
+        lines = ["| Capability | Worker | Result | Summary |", "|---|---|---|---|"]
+        for result in run.results:
+            counts = ", ".join(f"{value} {key}" for key, value in result.summary.items())
+            detail = counts
+            if not detail and result.output.strip():
+                detail = result.output.strip().splitlines()[-1]
+            lines.append(
+                f"| `{result.capability}` | `{result.worker_id or 'unavailable'}` | "
+                f"{icons.get(result.verdict, '')} {result.verdict} | {detail[:500]} |"
+            )
+        return "\n".join(lines)

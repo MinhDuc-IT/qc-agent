@@ -1,14 +1,16 @@
 import asyncio
-import os
 import shutil
 import subprocess
 from pathlib import Path
-from uuid import uuid4
 
+from .analyzer import RepositoryAnalyzer
 from .config import Settings
-from .contracts import QCRun, WorkerResult
+from .contracts import QCRun
 from .github import GitHubClient
+from .planner import CapabilityPlanner, PolicyValidator
 from .store import Store
+from .verdict import VerdictEngine
+from .workers import WorkerExecutor, WorkerRegistry
 
 
 class Orchestrator:
@@ -16,6 +18,12 @@ class Orchestrator:
         self.settings = settings
         self.store = store
         self.github = github
+        self.analyzer = RepositoryAnalyzer()
+        self.planner = CapabilityPlanner()
+        self.policy = PolicyValidator()
+        self.registry = WorkerRegistry()
+        self.worker = WorkerExecutor()
+        self.verdict = VerdictEngine()
 
     async def execute(self, run_id: str) -> None:
         run = self.store.get_run(run_id)
@@ -27,27 +35,37 @@ class Orchestrator:
             run.check_run_id = await self.github.create_check(run)
             self.store.save_run(run)
             await self._prepare(run, workspace)
+            ctx = run.trigger_context
+            run.analysis = await asyncio.to_thread(
+                self.analyzer.analyze, workspace, ctx.revision.base_sha, ctx.revision.head_sha
+            )
+            run.plan = self.policy.validate(
+                self.planner.create_plan(run.run_id, run.analysis), run.analysis
+            )
             run.status = "running"
             self.store.save_run(run)
-            task_id = f"task_{uuid4().hex}"
-            process = await asyncio.to_thread(
-                subprocess.run,
-                self.settings.agent_qc_worker_command,
-                cwd=workspace,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                env={**os.environ, "AGENT_QC_RUN_ID": run.run_id, "AGENT_QC_TASK_ID": task_id},
-                shell=True,
-                timeout=900,
-                check=False,
-            )
-            text = process.stdout.decode(errors="replace")
-            verdict = "pass" if process.returncode == 0 else "fail"
-            run.result = WorkerResult(task_id=task_id, run_id=run.run_id,
-                                      execution_status="completed", verdict=verdict,
-                                      exit_code=process.returncode, output=text)
+            projects = {project.id: project for project in run.analysis.projects}
+            completed: set[str] = set()
+            pending = list(run.plan.tasks)
+            while pending:
+                ready = [task for task in pending if set(task.depends_on) <= completed]
+                if not ready:
+                    raise RuntimeError("Execution plan contains a dependency cycle")
+                # A production queue can dispatch this ready batch in parallel.
+                for task in ready:
+                    project = projects[task.target.project_id]
+                    implementation = self.registry.resolve(task, project)
+                    result = await asyncio.to_thread(
+                        self.worker.execute, task, project, workspace, implementation
+                    )
+                    run.results.append(result)
+                    completed.add(task.task_id)
+                    pending.remove(task)
+                    self.store.save_run(run)
+            run.aggregate = self.verdict.evaluate(run.results)
+            run.result = run.results[0] if run.results else None
             run.status = "completed"
-            run.verdict = verdict
+            run.verdict = run.aggregate.verdict
         except Exception as exc:
             run.status = "failed"
             run.verdict = "unknown"

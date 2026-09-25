@@ -12,7 +12,6 @@ class Settings(BaseSettings):
     # Runtime clones must live outside the source tree watched by uvicorn --reload.
     agent_qc_workspace_dir: Path = Path("../.agent-qc-workspaces")
     agent_qc_dry_run: bool = True
-    agent_qc_worker_command: str = "python -m pytest -q"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

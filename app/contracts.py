@@ -64,26 +64,91 @@ class Finding(BaseModel):
     category: str
     title: str
     message: str
+    path: str | None = None
+    start_line: int | None = None
+
+
+class ProjectDescriptor(BaseModel):
+    id: str
+    root: str = "."
+    language: str
+    build_system: str | None = None
+    frameworks: list[str] = Field(default_factory=list)
+    manifests: list[str] = Field(default_factory=list)
+
+
+class SourceAnalysis(BaseModel):
+    schema_version: str = "1.0"
+    changed_files: list[str] = Field(default_factory=list)
+    projects: list[ProjectDescriptor] = Field(default_factory=list)
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
+class TaskTarget(BaseModel):
+    type: str = "source_tree"
+    project_id: str
+    ref: str | None = None
+
+
+class WorkerTask(BaseModel):
+    schema_version: str = "1.0"
+    task_id: str = Field(default_factory=lambda: f"task_{uuid4().hex}")
+    run_id: str
+    capability: str
+    objective: str
+    target: TaskTarget
+    worker_id: str | None = None
+    implementation: str | None = None
+    scope: dict[str, Any] = Field(default_factory=dict)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    depends_on: list[str] = Field(default_factory=list)
+    timeout_seconds: int = 900
+
+
+class ExecutionPlan(BaseModel):
+    schema_version: str = "1.0"
+    tasks: list[WorkerTask] = Field(default_factory=list)
 
 
 class WorkerResult(BaseModel):
     schema_version: str = "1.0"
     task_id: str
     run_id: str
+    capability: str = "functional.unit"
+    worker_id: str | None = None
+    implementation: str | None = None
     execution_status: Literal["completed", "failed", "cancelled", "timed_out"]
     verdict: Literal["pass", "fail", "warning", "skipped", "unknown"]
     exit_code: int | None = None
     output: str = ""
+    summary: dict[str, Any] = Field(default_factory=dict)
+    metrics: dict[str, float] = Field(default_factory=dict)
     findings: list[Finding] = Field(default_factory=list)
+
+
+class AggregateResult(BaseModel):
+    schema_version: str = "1.0"
+    verdict: Literal["pass", "fail", "warning", "skipped", "unknown"]
+    tasks_total: int
+    tasks_passed: int = 0
+    tasks_failed: int = 0
+    tasks_warning: int = 0
+    tasks_skipped: int = 0
+    execution_errors: int = 0
 
 
 class QCRun(BaseModel):
     schema_version: str = "1.0"
     run_id: str = Field(default_factory=lambda: f"run_{uuid4().hex}")
     status: Literal["queued", "preparing", "running", "completed", "failed"] = "queued"
-    verdict: Literal["pass", "fail", "unknown"] | None = None
+    verdict: Literal["pass", "fail", "warning", "skipped", "unknown"] | None = None
     trigger_context: TriggerContext
     check_run_id: int | None = None
+    analysis: SourceAnalysis | None = None
+    plan: ExecutionPlan | None = None
+    results: list[WorkerResult] = Field(default_factory=list)
+    aggregate: AggregateResult | None = None
+    # Backward-compatible alias for clients of the original single-worker demo.
     result: WorkerResult | None = None
     error: str | None = None
     created_at: datetime = Field(default_factory=utc_now)
@@ -117,4 +182,3 @@ def normalize_pull_request(payload: dict[str, Any], delivery_id: str) -> Trigger
         pull_request=PullRequest(number=pr["number"], url=pr["html_url"]),
         installation=Installation(id=payload["installation"]["id"]),
     )
-

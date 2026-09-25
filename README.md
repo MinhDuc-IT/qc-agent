@@ -2,7 +2,36 @@
 
 Vertical slice theo tài liệu production integration:
 
-`pull_request webhook -> HMAC + dedup -> TriggerContext -> QCRun -> checkout SHA -> pytest worker -> GitHub Check`
+`pull_request webhook -> HMAC + dedup -> analyze -> plan capabilities -> resolve workers -> execute -> verdict -> GitHub Check`
+
+## Generalized QC pipeline
+
+QC-Agent no longer depends on a hard-coded test command. For every immutable commit it now:
+
+1. Detects projects from manifests such as `pyproject.toml`, `package.json`, `pom.xml`, `go.mod`, `Cargo.toml`, and `.csproj`.
+2. Reads `.agent-qc.yaml` as quality intent.
+3. Produces a versioned `ExecutionPlan` of capabilities and targets.
+4. Validates the plan and resolves trusted worker adapters.
+5. Executes argument lists with `shell=False` and normalizes every tool result.
+6. Aggregates results into one GitHub verdict.
+
+Built-in executable adapters currently include pytest, npm test, Maven, Gradle, Go test, Cargo test, dotnet test, Ruff, ESLint, Semgrep, and Trivy. Missing implementations are reported as `skipped`; they are never converted into arbitrary shell commands.
+
+```yaml
+version: "1"
+quality:
+  static:
+    lint:
+      enabled: auto
+  functional:
+    unit:
+      enabled: true
+  security:
+    sast:
+      enabled: auto
+```
+
+The API run payload exposes `analysis`, `plan`, `results`, and `aggregate`, making planner decisions inspectable. The control-plane contracts are generalized, but the current executor still runs on the host. Add container/VM isolation before accepting untrusted public-fork code.
 
 ## Demo local (không cần GitHub App)
 
