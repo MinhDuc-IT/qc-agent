@@ -18,6 +18,20 @@ class VerdictEngine:
             verdict = "pass"
         else:
             verdict = "skipped"
-        return AggregateResult(verdict=verdict, tasks_total=len(results), tasks_passed=passed,
+        effective_failures = 0
+        for result in results:
+            if result.verdict != "fail":
+                continue
+            suppressible = bool(result.findings) and all(
+                finding.triage is not None
+                and finding.triage.proposed_action == "suppress"
+                for finding in result.findings
+            )
+            if not suppressible:
+                effective_failures += 1
+        triaged = ("unknown" if errors else "fail" if effective_failures else
+                   "warning" if warning else "pass" if passed or failed else "skipped")
+        return AggregateResult(verdict=verdict, verdict_raw=verdict, verdict_triaged=triaged,
+                               tasks_total=len(results), tasks_passed=passed,
                                tasks_failed=failed, tasks_warning=warning, tasks_skipped=skipped,
                                execution_errors=errors)

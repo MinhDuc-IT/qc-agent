@@ -1,0 +1,10 @@
+{
+  "proposal": {
+    "classification": "flaky",
+    "confidence": 0.95,
+    "evidence_used": ["confirmation_rerun_passed"],
+    "rationale": "Narrow confirmation passed",
+    "proposed_action": "suppress"
+  },
+  "expected_action": "suppress"
+}

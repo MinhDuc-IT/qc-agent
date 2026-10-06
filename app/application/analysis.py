@@ -20,12 +20,16 @@ PROJECT_MARKERS = {
 
 
 class RepositoryAnalyzer:
+    def __init__(self, org_policy_file: Path | None = None):
+        self.org_policy_file = org_policy_file
+
     def analyze(self, workspace: Path, base_sha: str, head_sha: str) -> SourceAnalysis:
+        repo_config = self._config_at_base(workspace, base_sha)
         return SourceAnalysis(
             changed_files=self._changed_files(workspace, base_sha, head_sha),
             diff_patch=self._diff_patch(workspace, base_sha, head_sha),
             projects=self._projects(workspace),
-            config=self._config(workspace),
+            config=self._merge_policy(self._org_policy(), repo_config),
         )
 
     def _changed_files(self, workspace: Path, base_sha: str, head_sha: str) -> list[str]:
@@ -78,9 +82,36 @@ class RepositoryAnalyzer:
             found[(".", "generic")] = ProjectDescriptor(id="root-generic", language="generic")
         return list(found.values())
 
-    def _config(self, workspace: Path) -> dict[str, Any]:
-        path = workspace / ".agent-qc.yaml"
-        if not path.exists():
+    def _config_at_base(self, workspace: Path, base_sha: str) -> dict[str, Any]:
+        """Read trusted gate configuration from base_sha, never from PR head."""
+        process = subprocess.run(
+            ["git", "-c", f"safe.directory={workspace.as_posix()}", "show",
+             f"{base_sha}:.agent-qc.yaml"],
+            cwd=workspace, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            check=False, text=True,
+        )
+        if process.returncode:
+            return {}
+        data = yaml.safe_load(process.stdout) or {}
+        return data if isinstance(data, dict) else {}
+
+    def _org_policy(self) -> dict[str, Any]:
+        path = self.org_policy_file
+        if path is None or not path.is_file():
             return {}
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        return data if isinstance(data, dict) else {}
+        if not isinstance(data, dict):
+            raise ValueError("Org policy must be a YAML mapping")
+        return data
+
+    @staticmethod
+    def _merge_policy(org: dict[str, Any], repo: dict[str, Any]) -> dict[str, Any]:
+        merged = dict(repo)
+        org_required = set(org.get("required_capabilities", []))
+        repo_required = set(repo.get("required_capabilities", []))
+        merged["required_capabilities"] = sorted(org_required | repo_required)
+        # These blocks affect execution/gating and therefore cannot be weakened by a PR.
+        for protected in ("verdict", "target", "thresholds", "kill_switches", "rules"):
+            if protected in org:
+                merged[protected] = org[protected]
+        return merged

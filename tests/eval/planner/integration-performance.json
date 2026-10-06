@@ -1,0 +1,4 @@
+{
+  "changed_files": ["tests/integration/test_checkout.py", "performance/checkout.k6.js"],
+  "expected_required_capabilities": ["integration.service", "performance.smoke", "security.secrets"]
+}

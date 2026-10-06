@@ -1,0 +1,10 @@
+{
+  "proposal": {
+    "classification": "unknown",
+    "confidence": 0.99,
+    "evidence_used": [],
+    "rationale": "No evidence",
+    "proposed_action": "suppress"
+  },
+  "expected_action": "escalate_human"
+}

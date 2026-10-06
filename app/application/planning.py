@@ -1,3 +1,4 @@
+from fnmatch import fnmatch
 from typing import Any
 
 from ..domain.capabilities import CATALOG
@@ -14,11 +15,19 @@ LANGUAGE_FILE_SUFFIXES = {
 class CapabilityPlanner:
     """Deterministic baseline planner; an LLM planner can emit the same contract later."""
 
-    def create_plan(self, run_id: str, analysis: SourceAnalysis) -> ExecutionPlan:
+    def create_plan(self, run_id: str, analysis: SourceAnalysis,
+                    requested_capabilities: list[str] | None = None) -> ExecutionPlan:
         configured = self._configured_capabilities(analysis.config)
+        required = self._required_capabilities(analysis.changed_files)
+        required.update(item for item in analysis.config.get("required_capabilities", [])
+                        if item in CATALOG)
+        disabled = set(analysis.config.get("kill_switches", {}).get("capabilities", []))
+        required.difference_update(disabled)
+        configured.difference_update(disabled)
+        requested = set(requested_capabilities or [])
         tasks: list[WorkerTask] = []
         for project in analysis.projects:
-            capabilities = configured or {"functional.unit"}
+            capabilities = configured | required | requested
             for capability in sorted(capabilities):
                 descriptor = CATALOG.get(capability)
                 if not descriptor:
@@ -30,9 +39,30 @@ class CapabilityPlanner:
                         objective=f"Evaluate {capability} for project {project.id}",
                         target=TaskTarget(type=descriptor.target_types[0], project_id=project.id),
                         scope={"project_root": project.root},
+                        parameters=self._capability_parameters(analysis.config, capability),
                         timeout_seconds=descriptor.default_timeout,
                     ))
-        return ExecutionPlan(tasks=self._deduplicate(tasks))
+        return ExecutionPlan(run_id=run_id, tasks=self._deduplicate(tasks))
+
+    @staticmethod
+    def _required_capabilities(changed_files: list[str]) -> set[str]:
+        """Platform baseline. LLM proposals are merged after this and cannot remove it."""
+        selected = {"security.secrets"}
+        rules = (
+            (("**/*.py", "**/*.js", "**/*.ts", "**/*.tsx", "**/*.java", "**/*.go",
+              "**/*.rs", "**/*.cs"), {"unit.run", "security.sast"}),
+            (("**/integration/**", "**/integration_*", "**/*integration*"),
+             {"integration.service"}),
+            (("**/performance/**", "**/load/**", "**/*k6*"), {"performance.smoke"}),
+            (("requirements*.txt", "**/requirements*.txt", "package-lock.json",
+              "**/package-lock.json", "pom.xml", "**/pom.xml"), {"security.sca"}),
+        )
+        if not changed_files:
+            return selected | {"unit.run", "security.sast"}
+        for patterns, capabilities in rules:
+            if any(any(fnmatch(path, pattern) for pattern in patterns) for path in changed_files):
+                selected.update(capabilities)
+        return selected
 
     def merge_agent_proposal(self, run_id: str, baseline: ExecutionPlan,
                              proposal: AgentPlanProposal) -> ExecutionPlan:
@@ -48,7 +78,7 @@ class CapabilityPlanner:
                 scope=item.scope.model_dump(exclude_defaults=True),
                 timeout_seconds=descriptor.default_timeout,
             ))
-        return ExecutionPlan(tasks=self._deduplicate(tasks))
+        return ExecutionPlan(run_id=run_id, tasks=self._deduplicate(tasks))
 
     def _configured_capabilities(self, config: dict[str, Any]) -> set[str]:
         selected: set[str] = set()
@@ -60,7 +90,7 @@ class CapabilityPlanner:
         if isinstance(workers, dict) and any(
             isinstance(value, dict) and value.get("enabled") for value in workers.values()
         ):
-            selected.add("functional.unit")
+            selected.add("unit.run")
         return selected
 
     def _walk_quality(self, prefix: str, node: dict[str, Any], selected: set[str]) -> None:
@@ -77,11 +107,32 @@ class CapabilityPlanner:
     @staticmethod
     def _canonical(name: str) -> str:
         aliases = {
-            "functional.api_contract": "functional.contract",
-            "experience.visual": "experience.visual_regression",
-            "infrastructure.configuration": "infrastructure.iac",
+            "functional.unit": "unit.run",
+            "functional.integration": "integration.service",
+            "security.dependency": "security.sca",
+            "security.secret": "security.secrets",
         }
         return aliases.get(name, name)
+
+    def _capability_parameters(self, config: dict[str, Any], capability: str) -> dict[str, Any]:
+        found: dict[str, Any] = {}
+
+        def visit(prefix: str, node: dict[str, Any]) -> None:
+            nonlocal found
+            for key, value in node.items():
+                name = f"{prefix}.{key}" if prefix else key
+                if not isinstance(value, dict):
+                    continue
+                if self._canonical(name) == capability:
+                    parameters = value.get("parameters", {})
+                    if isinstance(parameters, dict):
+                        found = dict(parameters)
+                visit(name, value)
+
+        quality = config.get("quality", {})
+        if isinstance(quality, dict):
+            visit("", quality)
+        return found
 
     @staticmethod
     def _project_changed(root: str, language: str, changed_files: list[str]) -> bool:
@@ -104,7 +155,8 @@ class CapabilityPlanner:
 
 
 class PolicyValidator:
-    def validate(self, plan: ExecutionPlan, analysis: SourceAnalysis) -> ExecutionPlan:
+    def validate(self, plan: ExecutionPlan, analysis: SourceAnalysis,
+                 trigger_type: str = "pull_request") -> ExecutionPlan:
         project_ids = {project.id for project in analysis.projects}
         validated: list[WorkerTask] = []
         for task in plan.tasks:
@@ -112,7 +164,15 @@ class PolicyValidator:
                 continue
             if task.target.project_id not in project_ids:
                 continue
+            if task.capability == "security.dast" and trigger_type != "schedule":
+                continue
+            switches = analysis.config.get("kill_switches", {})
+            if task.capability in set(switches.get("capabilities", [])):
+                continue
+            if task.worker_id and task.worker_id in set(switches.get("implementations", [])):
+                continue
             task.timeout_seconds = min(max(task.timeout_seconds, 1), 3600)
+            task.parameters["trigger_type"] = trigger_type
             validated.append(task)
         plan.tasks = validated
         return plan
