@@ -1,0 +1,214 @@
+{
+  "$defs": {
+    "Actor": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "login": {
+          "title": "Login",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "login"
+      ],
+      "title": "Actor",
+      "type": "object"
+    },
+    "Installation": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Installation",
+      "type": "object"
+    },
+    "PullRequest": {
+      "properties": {
+        "number": {
+          "title": "Number",
+          "type": "integer"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "number",
+        "url"
+      ],
+      "title": "PullRequest",
+      "type": "object"
+    },
+    "Repository": {
+      "properties": {
+        "provider": {
+          "const": "github",
+          "default": "github",
+          "title": "Provider",
+          "type": "string"
+        },
+        "owner": {
+          "title": "Owner",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "full_name": {
+          "title": "Full Name",
+          "type": "string"
+        },
+        "clone_url": {
+          "title": "Clone Url",
+          "type": "string"
+        },
+        "default_branch": {
+          "title": "Default Branch",
+          "type": "string"
+        }
+      },
+      "required": [
+        "owner",
+        "name",
+        "full_name",
+        "clone_url",
+        "default_branch"
+      ],
+      "title": "Repository",
+      "type": "object"
+    },
+    "Revision": {
+      "properties": {
+        "head_sha": {
+          "title": "Head Sha",
+          "type": "string"
+        },
+        "head_ref": {
+          "title": "Head Ref",
+          "type": "string"
+        },
+        "base_sha": {
+          "title": "Base Sha",
+          "type": "string"
+        },
+        "base_ref": {
+          "title": "Base Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "head_sha",
+        "head_ref",
+        "base_sha",
+        "base_ref"
+      ],
+      "title": "Revision",
+      "type": "object"
+    },
+    "Trigger": {
+      "properties": {
+        "type": {
+          "default": "pull_request",
+          "enum": [
+            "pull_request",
+            "manual",
+            "schedule",
+            "deployment"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "mode": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "manual"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "provider": {
+          "const": "github",
+          "default": "github",
+          "title": "Provider",
+          "type": "string"
+        },
+        "event": {
+          "title": "Event",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "delivery_id": {
+          "title": "Delivery Id",
+          "type": "string"
+        },
+        "actor": {
+          "$ref": "#/$defs/Actor"
+        }
+      },
+      "required": [
+        "event",
+        "action",
+        "delivery_id",
+        "actor"
+      ],
+      "title": "Trigger",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "trigger": {
+      "$ref": "#/$defs/Trigger"
+    },
+    "repository": {
+      "$ref": "#/$defs/Repository"
+    },
+    "revision": {
+      "$ref": "#/$defs/Revision"
+    },
+    "pull_request": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PullRequest"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "installation": {
+      "$ref": "#/$defs/Installation"
+    }
+  },
+  "required": [
+    "trigger",
+    "repository",
+    "revision",
+    "installation"
+  ],
+  "title": "TriggerContext",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-qc.local/schemas/trigger-context-1.1.json"
+}

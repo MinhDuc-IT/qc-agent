@@ -9,13 +9,21 @@ agents:
   - agent_id: performance-testing-agent
     name: Performance Testing Agent
     version: 1.0.0
-    capabilities: [performance.benchmark, performance.load]
+    capabilities: [performance.smoke, performance.load]
     supported_targets: [http_service]
     transport: http
     endpoint: http://performance-agent:8102
+    source_root: /workspaces
+    auth_secret_ref: secret://PERFORMANCE_AGENT_TOKEN
     timeout_seconds: 1800
     fallback_to_tools: false
 ```
+
+When `auth_secret_ref` is present, Agent-QC resolves only the named environment
+secret and sends `Authorization: Bearer <token>`. Secret values are never stored in
+the manifest. `source_root` maps the checkout directory name into a container or
+remote worker's shared workspace mount; omit it for a worker running on the same
+host filesystem.
 
 ## Start
 
@@ -95,4 +103,7 @@ tool:
   direct trusted tool adapter
 ```
 
-Production deployments should add service authentication, mTLS or workload identity, remote artifact/workspace references, health/capacity routing, durable callbacks or queues, and per-agent concurrency limits.
+Bearer service authentication and shared-mount path translation are implemented.
+Production deployments should replace bearer tokens with mTLS/workload identity
+where available, and add remote artifact references, health/capacity routing,
+durable callbacks or queues, and per-agent concurrency limits.

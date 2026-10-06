@@ -1,0 +1,96 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": "1.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "verdict": {
+      "enum": [
+        "pass",
+        "fail",
+        "warning",
+        "skipped",
+        "unknown"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    },
+    "tasks_total": {
+      "title": "Tasks Total",
+      "type": "integer"
+    },
+    "tasks_passed": {
+      "default": 0,
+      "title": "Tasks Passed",
+      "type": "integer"
+    },
+    "tasks_failed": {
+      "default": 0,
+      "title": "Tasks Failed",
+      "type": "integer"
+    },
+    "tasks_warning": {
+      "default": 0,
+      "title": "Tasks Warning",
+      "type": "integer"
+    },
+    "tasks_skipped": {
+      "default": 0,
+      "title": "Tasks Skipped",
+      "type": "integer"
+    },
+    "execution_errors": {
+      "default": 0,
+      "title": "Execution Errors",
+      "type": "integer"
+    },
+    "verdict_raw": {
+      "anyOf": [
+        {
+          "enum": [
+            "pass",
+            "fail",
+            "warning",
+            "skipped",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Verdict Raw"
+    },
+    "verdict_triaged": {
+      "anyOf": [
+        {
+          "enum": [
+            "pass",
+            "fail",
+            "warning",
+            "skipped",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Verdict Triaged"
+    }
+  },
+  "required": [
+    "verdict",
+    "tasks_total"
+  ],
+  "title": "AggregateResult",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-qc.local/schemas/aggregate-result-1.1.json"
+}

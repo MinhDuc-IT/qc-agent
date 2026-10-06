@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 def utc_now() -> datetime:
@@ -15,7 +15,7 @@ class Actor(BaseModel):
 
 
 class Trigger(BaseModel):
-    type: Literal["pull_request"] = "pull_request"
+    type: Literal["pull_request", "manual", "schedule", "deployment"] = "pull_request"
     mode: Literal["auto", "manual"] = "auto"
     provider: Literal["github"] = "github"
     event: str
@@ -50,11 +50,12 @@ class Installation(BaseModel):
 
 
 class TriggerContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     schema_version: str = "1.0"
     trigger: Trigger
     repository: Repository
     revision: Revision
-    pull_request: PullRequest
+    pull_request: PullRequest | None = None
     installation: Installation
 
 
@@ -66,6 +67,17 @@ class Finding(BaseModel):
     message: str
     path: str | None = None
     start_line: int | None = None
+    fingerprint: str | None = None
+    triage: "FindingTriage | None" = None
+
+
+class FindingTriage(BaseModel):
+    classification: Literal["real_bug", "flaky", "environment", "unknown"]
+    confidence: float = Field(ge=0, le=1)
+    evidence_used: list[str] = Field(default_factory=list)
+    rationale: str
+    duplicate_of: str | None = None
+    proposed_action: Literal["report", "suppress", "escalate_human"]
 
 
 class ProjectDescriptor(BaseModel):
@@ -86,13 +98,21 @@ class SourceAnalysis(BaseModel):
 
 
 class TaskTarget(BaseModel):
-    type: str = "source_tree"
+    type: str = "repository"
     project_id: str
     ref: str | None = None
 
 
+class ProvisionedTarget(BaseModel):
+    type: str
+    ref: str
+    healthcheck_url: str
+    process_id: int | None = None
+
+
 class WorkerTask(BaseModel):
-    schema_version: str = "1.0"
+    model_config = ConfigDict(extra="forbid")
+    schema_version: str = "1.1"
     task_id: str = Field(default_factory=lambda: f"task_{uuid4().hex}")
     run_id: str
     capability: str
@@ -105,10 +125,17 @@ class WorkerTask(BaseModel):
     parameters: dict[str, Any] = Field(default_factory=dict)
     depends_on: list[str] = Field(default_factory=list)
     timeout_seconds: int = 900
+    purpose: Literal["primary", "confirmation"] = "primary"
 
 
 class ExecutionPlan(BaseModel):
-    schema_version: str = "1.0"
+    schema_version: str = "1.1"
+    run_id: str | None = None
+    profile: Literal["smoke", "regression", "full"] = "smoke"
+    risk_flags: list[str] = Field(default_factory=list)
+    rationale: str = ""
+    confidence: float = Field(default=1.0, ge=0, le=1)
+    planner_version: str = "rules-v1"
     tasks: list[WorkerTask] = Field(default_factory=list)
 
 
@@ -153,10 +180,11 @@ class AgentResultAnalysis(BaseModel):
 
 
 class WorkerResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     schema_version: str = "1.0"
     task_id: str
     run_id: str
-    capability: str = "functional.unit"
+    capability: str = "unit.run"
     worker_id: str | None = None
     implementation: str | None = None
     worker_kind: Literal["external_agent", "tool", "managed_agent"] | None = None
@@ -167,10 +195,22 @@ class WorkerResult(BaseModel):
     summary: dict[str, Any] = Field(default_factory=dict)
     metrics: dict[str, float] = Field(default_factory=dict)
     findings: list[Finding] = Field(default_factory=list)
+    error: "ErrorDetail | None" = None
+
+
+class ErrorDetail(BaseModel):
+    code: str
+    message: str
+    category: Literal["authentication", "authorization", "webhook", "repository",
+                      "configuration", "planning", "execution", "target",
+                      "infrastructure", "internal"]
+    retryable: bool = False
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class AggregateResult(BaseModel):
-    schema_version: str = "1.0"
+    model_config = ConfigDict(extra="forbid")
+    schema_version: str = "1.1"
     verdict: Literal["pass", "fail", "warning", "skipped", "unknown"]
     tasks_total: int
     tasks_passed: int = 0
@@ -178,6 +218,31 @@ class AggregateResult(BaseModel):
     tasks_warning: int = 0
     tasks_skipped: int = 0
     execution_errors: int = 0
+    verdict_raw: Literal["pass", "fail", "warning", "skipped", "unknown"] | None = None
+    verdict_triaged: Literal["pass", "fail", "warning", "skipped", "unknown"] | None = None
+
+
+class WorkerManifestExecution(BaseModel):
+    adapter: Literal["cli", "http", "managed_agent"]
+    entrypoint: list[str] = Field(default_factory=list)
+
+
+class WorkerRequirements(BaseModel):
+    target: bool = False
+    workspace: bool = True
+    device: str | None = None
+
+
+class WorkerManifest(BaseModel):
+    schema_version: str = "1.1"
+    worker_id: str
+    version: str
+    capabilities: list[str]
+    supports_targets: list[str]
+    requires: WorkerRequirements = Field(default_factory=WorkerRequirements)
+    task_schema: str = "1.x"
+    result_schema: str = "1.0"
+    execution: WorkerManifestExecution
 
 
 class ExternalAgentManifest(BaseModel):
@@ -189,6 +254,10 @@ class ExternalAgentManifest(BaseModel):
     supported_targets: list[str]
     transport: Literal["http"] = "http"
     endpoint: str
+    # Optional path at which the orchestrator workspace root is mounted in a
+    # remote/container worker. The checkout directory name is appended.
+    source_root: str | None = None
+    auth_secret_ref: str | None = None
     timeout_seconds: int = 1800
     fallback_to_tools: bool = True
 
@@ -200,10 +269,13 @@ class ExternalAgentRun(BaseModel):
 
 
 class QCRun(BaseModel):
-    schema_version: str = "1.0"
+    model_config = ConfigDict(extra="forbid")
+    schema_version: str = "1.1"
     run_id: str = Field(default_factory=lambda: f"run_{uuid4().hex}")
-    status: Literal["queued", "preparing", "running", "completed", "failed"] = "queued"
+    status: Literal["queued", "preparing", "running", "completed", "failed", "cancelled"] = "queued"
     verdict: Literal["pass", "fail", "warning", "skipped", "unknown"] | None = None
+    mode: Literal["observe", "enforce"] = "observe"
+    requested_capabilities: list[str] = Field(default_factory=list)
     trigger_context: TriggerContext
     check_run_id: int | None = None
     analysis: SourceAnalysis | None = None
@@ -218,6 +290,50 @@ class QCRun(BaseModel):
     result: WorkerResult | None = None
     error: str | None = None
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class DecisionLog(BaseModel):
+    decision_id: str = Field(default_factory=lambda: f"decision_{uuid4().hex}")
+    run_id: str
+    component: Literal["planner", "triage"]
+    rationale: str
+    input_hash: str
+    model: str
+    prompt_version: str
+    output: dict[str, Any]
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class FlakyTestRecord(BaseModel):
+    fingerprint: str
+    occurrences: int = 1
+    last_seen_at: datetime = Field(default_factory=utc_now)
+    evidence: list[str] = Field(default_factory=list)
+
+
+class RunComparison(BaseModel):
+    run_id: str
+    verdict_raw: str
+    verdict_triaged: str
+    human_verdict: str | None = None
+
+
+class Artifact(BaseModel):
+    artifact_id: str = Field(default_factory=lambda: f"artifact_{uuid4().hex}")
+    run_id: str
+    task_id: str | None = None
+    type: str
+    name: str
+    storage_ref: str
+    retention_until: datetime
+
+
+class ManualRunRequest(BaseModel):
+    repository: Repository
+    revision: Revision
+    installation: Installation
+    requested_capabilities: list[str] = Field(default_factory=list)
+    actor: Actor
 
 
 def normalize_pull_request(payload: dict[str, Any], delivery_id: str) -> TriggerContext:

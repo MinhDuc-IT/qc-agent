@@ -1,0 +1,1296 @@
+{
+  "$defs": {
+    "Actor": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "login": {
+          "title": "Login",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "login"
+      ],
+      "title": "Actor",
+      "type": "object"
+    },
+    "AgentPlanProposal": {
+      "properties": {
+        "risks": {
+          "items": {
+            "$ref": "#/$defs/RiskAssessment"
+          },
+          "title": "Risks",
+          "type": "array"
+        },
+        "tasks": {
+          "items": {
+            "$ref": "#/$defs/AgentTaskProposal"
+          },
+          "title": "Tasks",
+          "type": "array"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "title": "AgentPlanProposal",
+      "type": "object"
+    },
+    "AgentResultAnalysis": {
+      "properties": {
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        },
+        "root_causes": {
+          "items": {
+            "$ref": "#/$defs/RootCauseAnalysis"
+          },
+          "title": "Root Causes",
+          "type": "array"
+        },
+        "residual_risks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Residual Risks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "summary"
+      ],
+      "title": "AgentResultAnalysis",
+      "type": "object"
+    },
+    "AgentTaskProposal": {
+      "properties": {
+        "project_id": {
+          "title": "Project Id",
+          "type": "string"
+        },
+        "capability": {
+          "title": "Capability",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "execution_preference": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "external_agent",
+            "tool"
+          ],
+          "title": "Execution Preference",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/AgentTaskScope"
+        }
+      },
+      "required": [
+        "project_id",
+        "capability",
+        "reason"
+      ],
+      "title": "AgentTaskProposal",
+      "type": "object"
+    },
+    "AgentTaskScope": {
+      "properties": {
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Paths",
+          "type": "array"
+        },
+        "scenarios": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Scenarios",
+          "type": "array"
+        }
+      },
+      "title": "AgentTaskScope",
+      "type": "object"
+    },
+    "AggregateResult": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "default": "1.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "pass",
+            "fail",
+            "warning",
+            "skipped",
+            "unknown"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        },
+        "tasks_total": {
+          "title": "Tasks Total",
+          "type": "integer"
+        },
+        "tasks_passed": {
+          "default": 0,
+          "title": "Tasks Passed",
+          "type": "integer"
+        },
+        "tasks_failed": {
+          "default": 0,
+          "title": "Tasks Failed",
+          "type": "integer"
+        },
+        "tasks_warning": {
+          "default": 0,
+          "title": "Tasks Warning",
+          "type": "integer"
+        },
+        "tasks_skipped": {
+          "default": 0,
+          "title": "Tasks Skipped",
+          "type": "integer"
+        },
+        "execution_errors": {
+          "default": 0,
+          "title": "Execution Errors",
+          "type": "integer"
+        },
+        "verdict_raw": {
+          "anyOf": [
+            {
+              "enum": [
+                "pass",
+                "fail",
+                "warning",
+                "skipped",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verdict Raw"
+        },
+        "verdict_triaged": {
+          "anyOf": [
+            {
+              "enum": [
+                "pass",
+                "fail",
+                "warning",
+                "skipped",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Verdict Triaged"
+        }
+      },
+      "required": [
+        "verdict",
+        "tasks_total"
+      ],
+      "title": "AggregateResult",
+      "type": "object"
+    },
+    "ErrorDetail": {
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "authentication",
+            "authorization",
+            "webhook",
+            "repository",
+            "configuration",
+            "planning",
+            "execution",
+            "target",
+            "infrastructure",
+            "internal"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "retryable": {
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "category"
+      ],
+      "title": "ErrorDetail",
+      "type": "object"
+    },
+    "ExecutionPlan": {
+      "properties": {
+        "schema_version": {
+          "default": "1.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "profile": {
+          "default": "smoke",
+          "enum": [
+            "smoke",
+            "regression",
+            "full"
+          ],
+          "title": "Profile",
+          "type": "string"
+        },
+        "risk_flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Risk Flags",
+          "type": "array"
+        },
+        "rationale": {
+          "default": "",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "confidence": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "planner_version": {
+          "default": "rules-v1",
+          "title": "Planner Version",
+          "type": "string"
+        },
+        "tasks": {
+          "items": {
+            "$ref": "#/$defs/WorkerTask"
+          },
+          "title": "Tasks",
+          "type": "array"
+        }
+      },
+      "title": "ExecutionPlan",
+      "type": "object"
+    },
+    "Finding": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "info"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "start_line": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Line"
+        },
+        "fingerprint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fingerprint"
+        },
+        "triage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FindingTriage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "severity",
+        "category",
+        "title",
+        "message"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "FindingTriage": {
+      "properties": {
+        "classification": {
+          "enum": [
+            "real_bug",
+            "flaky",
+            "environment",
+            "unknown"
+          ],
+          "title": "Classification",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence_used": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Used",
+          "type": "array"
+        },
+        "rationale": {
+          "title": "Rationale",
+          "type": "string"
+        },
+        "duplicate_of": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duplicate Of"
+        },
+        "proposed_action": {
+          "enum": [
+            "report",
+            "suppress",
+            "escalate_human"
+          ],
+          "title": "Proposed Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "classification",
+        "confidence",
+        "rationale",
+        "proposed_action"
+      ],
+      "title": "FindingTriage",
+      "type": "object"
+    },
+    "Installation": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Installation",
+      "type": "object"
+    },
+    "ProjectDescriptor": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "root": {
+          "default": ".",
+          "title": "Root",
+          "type": "string"
+        },
+        "language": {
+          "title": "Language",
+          "type": "string"
+        },
+        "build_system": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Build System"
+        },
+        "frameworks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Frameworks",
+          "type": "array"
+        },
+        "manifests": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manifests",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "language"
+      ],
+      "title": "ProjectDescriptor",
+      "type": "object"
+    },
+    "PullRequest": {
+      "properties": {
+        "number": {
+          "title": "Number",
+          "type": "integer"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "number",
+        "url"
+      ],
+      "title": "PullRequest",
+      "type": "object"
+    },
+    "Repository": {
+      "properties": {
+        "provider": {
+          "const": "github",
+          "default": "github",
+          "title": "Provider",
+          "type": "string"
+        },
+        "owner": {
+          "title": "Owner",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "full_name": {
+          "title": "Full Name",
+          "type": "string"
+        },
+        "clone_url": {
+          "title": "Clone Url",
+          "type": "string"
+        },
+        "default_branch": {
+          "title": "Default Branch",
+          "type": "string"
+        }
+      },
+      "required": [
+        "owner",
+        "name",
+        "full_name",
+        "clone_url",
+        "default_branch"
+      ],
+      "title": "Repository",
+      "type": "object"
+    },
+    "Revision": {
+      "properties": {
+        "head_sha": {
+          "title": "Head Sha",
+          "type": "string"
+        },
+        "head_ref": {
+          "title": "Head Ref",
+          "type": "string"
+        },
+        "base_sha": {
+          "title": "Base Sha",
+          "type": "string"
+        },
+        "base_ref": {
+          "title": "Base Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "head_sha",
+        "head_ref",
+        "base_sha",
+        "base_ref"
+      ],
+      "title": "Revision",
+      "type": "object"
+    },
+    "RiskAssessment": {
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "info"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "category",
+        "severity",
+        "description"
+      ],
+      "title": "RiskAssessment",
+      "type": "object"
+    },
+    "RootCauseAnalysis": {
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "root_cause": {
+          "title": "Root Cause",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "remediation": {
+          "title": "Remediation",
+          "type": "string"
+        },
+        "affected_files": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Files",
+          "type": "array"
+        }
+      },
+      "required": [
+        "task_id",
+        "root_cause",
+        "confidence",
+        "remediation"
+      ],
+      "title": "RootCauseAnalysis",
+      "type": "object"
+    },
+    "SourceAnalysis": {
+      "properties": {
+        "schema_version": {
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "changed_files": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Changed Files",
+          "type": "array"
+        },
+        "diff_patch": {
+          "default": "",
+          "title": "Diff Patch",
+          "type": "string"
+        },
+        "projects": {
+          "items": {
+            "$ref": "#/$defs/ProjectDescriptor"
+          },
+          "title": "Projects",
+          "type": "array"
+        },
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        }
+      },
+      "title": "SourceAnalysis",
+      "type": "object"
+    },
+    "TaskTarget": {
+      "properties": {
+        "type": {
+          "default": "repository",
+          "title": "Type",
+          "type": "string"
+        },
+        "project_id": {
+          "title": "Project Id",
+          "type": "string"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ref"
+        }
+      },
+      "required": [
+        "project_id"
+      ],
+      "title": "TaskTarget",
+      "type": "object"
+    },
+    "Trigger": {
+      "properties": {
+        "type": {
+          "default": "pull_request",
+          "enum": [
+            "pull_request",
+            "manual",
+            "schedule",
+            "deployment"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "mode": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "manual"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "provider": {
+          "const": "github",
+          "default": "github",
+          "title": "Provider",
+          "type": "string"
+        },
+        "event": {
+          "title": "Event",
+          "type": "string"
+        },
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "delivery_id": {
+          "title": "Delivery Id",
+          "type": "string"
+        },
+        "actor": {
+          "$ref": "#/$defs/Actor"
+        }
+      },
+      "required": [
+        "event",
+        "action",
+        "delivery_id",
+        "actor"
+      ],
+      "title": "Trigger",
+      "type": "object"
+    },
+    "TriggerContext": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "trigger": {
+          "$ref": "#/$defs/Trigger"
+        },
+        "repository": {
+          "$ref": "#/$defs/Repository"
+        },
+        "revision": {
+          "$ref": "#/$defs/Revision"
+        },
+        "pull_request": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PullRequest"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "installation": {
+          "$ref": "#/$defs/Installation"
+        }
+      },
+      "required": [
+        "trigger",
+        "repository",
+        "revision",
+        "installation"
+      ],
+      "title": "TriggerContext",
+      "type": "object"
+    },
+    "WorkerResult": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "capability": {
+          "default": "unit.run",
+          "title": "Capability",
+          "type": "string"
+        },
+        "worker_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Worker Id"
+        },
+        "implementation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Implementation"
+        },
+        "worker_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "external_agent",
+                "tool",
+                "managed_agent"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Worker Kind"
+        },
+        "execution_status": {
+          "enum": [
+            "completed",
+            "failed",
+            "cancelled",
+            "timed_out"
+          ],
+          "title": "Execution Status",
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "pass",
+            "fail",
+            "warning",
+            "skipped",
+            "unknown"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exit Code"
+        },
+        "output": {
+          "default": "",
+          "title": "Output",
+          "type": "string"
+        },
+        "summary": {
+          "additionalProperties": true,
+          "title": "Summary",
+          "type": "object"
+        },
+        "metrics": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Metrics",
+          "type": "object"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/Finding"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorDetail"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "task_id",
+        "run_id",
+        "execution_status",
+        "verdict"
+      ],
+      "title": "WorkerResult",
+      "type": "object"
+    },
+    "WorkerTask": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "default": "1.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "capability": {
+          "title": "Capability",
+          "type": "string"
+        },
+        "objective": {
+          "title": "Objective",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/TaskTarget"
+        },
+        "worker_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Worker Id"
+        },
+        "implementation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Implementation"
+        },
+        "execution_preference": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "external_agent",
+            "tool"
+          ],
+          "title": "Execution Preference",
+          "type": "string"
+        },
+        "scope": {
+          "additionalProperties": true,
+          "title": "Scope",
+          "type": "object"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "timeout_seconds": {
+          "default": 900,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "purpose": {
+          "default": "primary",
+          "enum": [
+            "primary",
+            "confirmation"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "capability",
+        "objective",
+        "target"
+      ],
+      "title": "WorkerTask",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": "1.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "status": {
+      "default": "queued",
+      "enum": [
+        "queued",
+        "preparing",
+        "running",
+        "completed",
+        "failed",
+        "cancelled"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "verdict": {
+      "anyOf": [
+        {
+          "enum": [
+            "pass",
+            "fail",
+            "warning",
+            "skipped",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Verdict"
+    },
+    "mode": {
+      "default": "observe",
+      "enum": [
+        "observe",
+        "enforce"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "requested_capabilities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Requested Capabilities",
+      "type": "array"
+    },
+    "trigger_context": {
+      "$ref": "#/$defs/TriggerContext"
+    },
+    "check_run_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Check Run Id"
+    },
+    "analysis": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SourceAnalysis"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "agent_mode": {
+      "default": "disabled",
+      "enum": [
+        "active",
+        "fallback",
+        "disabled"
+      ],
+      "title": "Agent Mode",
+      "type": "string"
+    },
+    "agent_error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Agent Error"
+    },
+    "agent_plan": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AgentPlanProposal"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "plan": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ExecutionPlan"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/WorkerResult"
+      },
+      "title": "Results",
+      "type": "array"
+    },
+    "aggregate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AggregateResult"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "agent_result_analysis": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AgentResultAnalysis"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/WorkerResult"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "trigger_context"
+  ],
+  "title": "QCRun",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-qc.local/schemas/qc-run-1.1.json"
+}

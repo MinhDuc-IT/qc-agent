@@ -1,0 +1,151 @@
+{
+  "$defs": {
+    "FindingTriage": {
+      "properties": {
+        "classification": {
+          "enum": [
+            "real_bug",
+            "flaky",
+            "environment",
+            "unknown"
+          ],
+          "title": "Classification",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence_used": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Used",
+          "type": "array"
+        },
+        "rationale": {
+          "title": "Rationale",
+          "type": "string"
+        },
+        "duplicate_of": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duplicate Of"
+        },
+        "proposed_action": {
+          "enum": [
+            "report",
+            "suppress",
+            "escalate_human"
+          ],
+          "title": "Proposed Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "classification",
+        "confidence",
+        "rationale",
+        "proposed_action"
+      ],
+      "title": "FindingTriage",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "severity": {
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "info"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "category": {
+      "title": "Category",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "message": {
+      "title": "Message",
+      "type": "string"
+    },
+    "path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Path"
+    },
+    "start_line": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Start Line"
+    },
+    "fingerprint": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fingerprint"
+    },
+    "triage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FindingTriage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "id",
+    "severity",
+    "category",
+    "title",
+    "message"
+  ],
+  "title": "Finding",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-qc.local/schemas/finding-1.1.json"
+}

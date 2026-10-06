@@ -1,0 +1,200 @@
+{
+  "$defs": {
+    "TaskTarget": {
+      "properties": {
+        "type": {
+          "default": "repository",
+          "title": "Type",
+          "type": "string"
+        },
+        "project_id": {
+          "title": "Project Id",
+          "type": "string"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ref"
+        }
+      },
+      "required": [
+        "project_id"
+      ],
+      "title": "TaskTarget",
+      "type": "object"
+    },
+    "WorkerTask": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "default": "1.1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "capability": {
+          "title": "Capability",
+          "type": "string"
+        },
+        "objective": {
+          "title": "Objective",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/TaskTarget"
+        },
+        "worker_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Worker Id"
+        },
+        "implementation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Implementation"
+        },
+        "execution_preference": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "external_agent",
+            "tool"
+          ],
+          "title": "Execution Preference",
+          "type": "string"
+        },
+        "scope": {
+          "additionalProperties": true,
+          "title": "Scope",
+          "type": "object"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "timeout_seconds": {
+          "default": 900,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "purpose": {
+          "default": "primary",
+          "enum": [
+            "primary",
+            "confirmation"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "capability",
+        "objective",
+        "target"
+      ],
+      "title": "WorkerTask",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "default": "1.1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Run Id"
+    },
+    "profile": {
+      "default": "smoke",
+      "enum": [
+        "smoke",
+        "regression",
+        "full"
+      ],
+      "title": "Profile",
+      "type": "string"
+    },
+    "risk_flags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Risk Flags",
+      "type": "array"
+    },
+    "rationale": {
+      "default": "",
+      "title": "Rationale",
+      "type": "string"
+    },
+    "confidence": {
+      "default": 1.0,
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "planner_version": {
+      "default": "rules-v1",
+      "title": "Planner Version",
+      "type": "string"
+    },
+    "tasks": {
+      "items": {
+        "$ref": "#/$defs/WorkerTask"
+      },
+      "title": "Tasks",
+      "type": "array"
+    }
+  },
+  "title": "ExecutionPlan",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-qc.local/schemas/plan-1.1.json"
+}
