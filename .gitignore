@@ -6,5 +6,7 @@ __pycache__/
 .pytest_cache/
 .data/
 .workspaces/
+.agent-qc-hercules/
+.agent-qc-k6/
 external-agents.yaml
 *.pyc
