@@ -30,6 +30,10 @@ class ExternalAgentRegistry:
     def _validate(self) -> None:
         ids: set[str] = set()
         for manifest in self.manifests:
+            if "pentagi" in f"{manifest.agent_id} {manifest.name}".lower():
+                raise ValueError(
+                    "PentAGI is disabled until an isolated worker VM policy is implemented"
+                )
             if manifest.agent_id in ids:
                 raise ValueError(f"Duplicate external agent id: {manifest.agent_id}")
             ids.add(manifest.agent_id)

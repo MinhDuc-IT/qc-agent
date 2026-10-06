@@ -1,0 +1,3 @@
+fastapi==0.128.0
+uvicorn[standard]==0.34.2
+testzeus-hercules==1.0.2

@@ -1,0 +1,42 @@
+services:
+  functional-agent:
+    build:
+      context: ..
+      dockerfile: workers/functional_hercules/Dockerfile
+    env_file: [functional_hercules/.env]
+    ports: ["8101:8101"]
+    volumes: ["../../.agent-qc-workspaces:/workspaces:ro", "../../.agent-qc-artifacts/hercules:/artifacts"]
+
+  integration-agent:
+    build:
+      context: ..
+      dockerfile: workers/integration_keploy/Dockerfile
+    environment:
+      KEPLOY_ALLOWED_SOURCE_ROOT: /workspaces
+    ports: ["8102:8102"]
+    volumes: ["../../.agent-qc-workspaces:/workspaces"]
+
+  performance-agent:
+    build:
+      context: ..
+      dockerfile: workers/performance_k6/Dockerfile
+    environment:
+      K6_ALLOWED_SOURCE_ROOT: /workspaces
+      K6_WORK_ROOT: /artifacts
+    ports: ["8104:8104"]
+    volumes: ["../../.agent-qc-workspaces:/workspaces:ro", "../../.agent-qc-artifacts/k6:/artifacts"]
+
+  # Enable only on a dedicated nightly worker host. Never expose the Docker
+  # socket to PR-triggered jobs.
+  security-nightly-agent:
+    profiles: [nightly-security]
+    build:
+      context: ..
+      dockerfile: workers/security_strix/Dockerfile
+    environment:
+      STRIX_ALLOWED_SOURCE_ROOT: /workspaces
+      STRIX_MAX_BUDGET_USD: "5"
+    ports: ["8103:8103"]
+    volumes:
+      - ../../.agent-qc-workspaces:/workspaces
+      - /var/run/docker.sock:/var/run/docker.sock

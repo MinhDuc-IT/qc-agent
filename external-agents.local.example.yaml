@@ -4,46 +4,42 @@ agents:
     name: TestZeus Hercules Functional Agent
     version: 1.0.2
     capabilities: [functional.api, functional.e2e]
-    supported_targets: [repository, openapi, http_service, web_app]
+    supported_targets: [openapi, http_service, web_app]
     transport: http
-    endpoint: http://functional-agent:8101
-    source_root: /workspaces
+    endpoint: http://127.0.0.1:8101
     auth_secret_ref: secret://FUNCTIONAL_AGENT_TOKEN
-    timeout_seconds: 1800
+    timeout_seconds: 900
     fallback_to_tools: true
 
-  - agent_id: integration-testing-agent
+  - agent_id: integration-keploy-agent
     name: Keploy OSS Integration Agent
     version: 3.8.58
     capabilities: [integration.service, contract.consumer_provider]
     supported_targets: [repository, http_service, service_graph]
     transport: http
-    endpoint: http://integration-agent:8102
-    source_root: /workspaces
+    endpoint: http://127.0.0.1:8102
     auth_secret_ref: secret://INTEGRATION_AGENT_TOKEN
-    timeout_seconds: 1800
+    timeout_seconds: 1200
     fallback_to_tools: true
 
-  - agent_id: security-testing-agent
+  - agent_id: strix-nightly-agent
     name: Strix Nightly Security Agent
     version: 1.4.0
     capabilities: [security.dast]
     supported_targets: [http_service, web_app]
     transport: http
-    endpoint: http://security-agent:8103
-    source_root: /workspaces
+    endpoint: http://127.0.0.1:8103
     auth_secret_ref: secret://STRIX_AGENT_TOKEN
-    timeout_seconds: 1800
+    timeout_seconds: 3600
     fallback_to_tools: false
 
-  - agent_id: performance-testing-agent
+  - agent_id: performance-k6-agent
     name: Performance Agent with k6
     version: 2.3.0
     capabilities: [performance.smoke, performance.load, performance.stress, performance.soak]
     supported_targets: [http_service]
     transport: http
-    endpoint: http://performance-agent:8104
-    source_root: /workspaces
+    endpoint: http://127.0.0.1:8104
     auth_secret_ref: secret://PERFORMANCE_AGENT_TOKEN
     timeout_seconds: 3600
     fallback_to_tools: false
