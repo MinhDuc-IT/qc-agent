@@ -3,7 +3,7 @@ from .base import CommandAdapter
 
 
 class GoTestAdapter(CommandAdapter):
-    worker_id, implementation, capability = "go-test", "go-test", "functional.unit"
+    worker_id, implementation, capability = "go-test", "go-test", "unit.run"
     languages, executable = ("go",), "go"
 
     def build_argv(self, task: WorkerTask, project: ProjectDescriptor) -> tuple[str, ...]:

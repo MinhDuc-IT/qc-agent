@@ -1,9 +1,11 @@
-from ...domain.models import ProjectDescriptor, WorkerTask
+from ...domain.capabilities import CATALOG
+from ...domain.models import (ProjectDescriptor, WorkerManifest, WorkerManifestExecution,
+                              WorkerRequirements, WorkerTask)
 from .adapters import (
-    CargoTestAdapter, DotnetTestAdapter, EslintAdapter, GoTestAdapter,
+    CargoTestAdapter, DotnetTestAdapter, GoTestAdapter,
     GradleTestAdapter, MavenTestAdapter, NpmTestAdapter,
-    PytestIntegrationAdapter, PytestUnitAdapter, RuffAdapter,
-    SemgrepAdapter, TrivyDependencyAdapter,
+    PytestIntegrationAdapter, PytestUnitAdapter,
+    GitleaksAdapter, SemgrepAdapter, TrivyDependencyAdapter,
 )
 from .contracts import WorkerAdapter
 
@@ -11,8 +13,8 @@ from .contracts import WorkerAdapter
 DEFAULT_ADAPTERS: tuple[WorkerAdapter, ...] = (
     PytestUnitAdapter(), PytestIntegrationAdapter(), NpmTestAdapter(),
     MavenTestAdapter(), GradleTestAdapter(), GoTestAdapter(), CargoTestAdapter(),
-    DotnetTestAdapter(), RuffAdapter(), EslintAdapter(), SemgrepAdapter(),
-    TrivyDependencyAdapter(),
+    DotnetTestAdapter(), SemgrepAdapter(),
+    TrivyDependencyAdapter(), GitleaksAdapter(),
 )
 
 
@@ -28,13 +30,20 @@ class WorkerRegistry:
                 return exact[0]
         return candidates[0] if candidates else None
 
-    def manifests(self) -> list[dict[str, object]]:
+    def manifests(self) -> list[WorkerManifest]:
         return [
-            {
-                "worker_id": adapter.worker_id,
-                "implementation": adapter.implementation,
-                "capability": adapter.capability,
-                "languages": list(adapter.languages),
-            }
+            WorkerManifest(
+                worker_id=adapter.worker_id,
+                version="0.1.0",
+                capabilities=[adapter.capability],
+                supports_targets=list(CATALOG[adapter.capability].target_types),
+                requires=WorkerRequirements(
+                    target=CATALOG[adapter.capability].needs_running_target,
+                    workspace=True,
+                ),
+                execution=WorkerManifestExecution(
+                    adapter="cli", entrypoint=[adapter.executable]
+                ),
+            )
             for adapter in self.adapters
         ]

@@ -3,7 +3,7 @@ from .base import CommandAdapter
 
 
 class PytestUnitAdapter(CommandAdapter):
-    worker_id, implementation, capability = "python-pytest", "pytest", "functional.unit"
+    worker_id, implementation, capability = "python-pytest", "pytest", "unit.run"
     languages, executable = ("python",), "python"
 
     def build_argv(self, task: WorkerTask, project: ProjectDescriptor) -> tuple[str, ...]:
@@ -12,7 +12,7 @@ class PytestUnitAdapter(CommandAdapter):
 
 
 class PytestIntegrationAdapter(CommandAdapter):
-    worker_id, implementation, capability = "python-pytest-integration", "pytest", "functional.integration"
+    worker_id, implementation, capability = "python-pytest-integration", "pytest", "integration.service"
     languages, executable = ("python",), "python"
 
     def build_argv(self, task: WorkerTask, project: ProjectDescriptor) -> tuple[str, ...]:

@@ -1,0 +1,3 @@
+# Copy to docker-images.yaml only after verifying and pinning images for your organization.
+# pytest: registry.example.com/agent-qc/pytest@sha256:<verified-digest>
+{}

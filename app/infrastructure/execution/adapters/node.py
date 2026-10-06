@@ -3,7 +3,7 @@ from .base import CommandAdapter
 
 
 class NpmTestAdapter(CommandAdapter):
-    worker_id, implementation, capability = "node-npm-test", "npm", "functional.unit"
+    worker_id, implementation, capability = "node-npm-test", "npm", "unit.run"
     languages, executable = ("javascript",), "npm"
 
     def build_argv(self, task: WorkerTask, project: ProjectDescriptor) -> tuple[str, ...]:

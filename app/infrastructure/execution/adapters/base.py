@@ -29,7 +29,8 @@ class CommandAdapter:
         cwd = workspace if root == "." else workspace / root
         return Invocation(argv=self.build_argv(task, project), cwd=cwd)
 
-    def parse_result(self, task: WorkerTask, exit_code: int, output: str) -> WorkerResult:
+    def parse_result(self, task: WorkerTask, exit_code: int, output: str,
+                     cwd: Path | None = None) -> WorkerResult:
         return WorkerResult(
             task_id=task.task_id, run_id=task.run_id, capability=task.capability,
             worker_id=self.worker_id, implementation=self.implementation,
