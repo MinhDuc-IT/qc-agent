@@ -1,5 +1,8 @@
 # Agent-QC GitHub demo
 
+> Implementation status for `QC_AGENT_SPEC_v2.md`: see
+> [`docs/spec-v2-implementation.md`](docs/spec-v2-implementation.md).
+
 Vertical slice theo tài liệu production integration:
 
 `pull_request webhook -> HMAC + dedup -> analyze -> plan capabilities -> resolve workers -> execute -> verdict -> GitHub Check`
@@ -43,7 +46,7 @@ When `OPENAI_API_KEY` is configured, two model-backed agents run on the critical
 ```env
 AGENT_QC_AGENT_ENABLED=true
 OPENAI_API_KEY=<server-side-api-key>
-OPENAI_MODEL=gpt-6-astra
+OPENAI_MODEL=gpt-5.4-mini
 ```
 
 The model never emits executable commands. Its proposal is schema-validated, merged with mandatory deterministic checks and passed through `PolicyValidator`. The deterministic `VerdictEngine` remains the merge-gate authority. Without an API key, the run explicitly records `agent_mode=fallback`.
@@ -61,6 +64,26 @@ Each planned task has an execution preference:
 - `tool`: call the trusted local tool adapter directly when the Orchestrator decides an agent loop is unnecessary.
 
 The registry can be inspected at `GET /api/v1/agents`. External HTTP agents implement `POST /v1/tasks`, `GET /v1/tasks/{run_id}`, and `DELETE /v1/tasks/{run_id}`. See `docs/external-agent-contract.md`.
+
+The concrete Phase-1 Hercules, Keploy, deterministic security, Strix, and k6
+deployment is documented in [`docs/worker-rollout.md`](docs/worker-rollout.md).
+Installation and onboarding guidance for the complete open-source stack is in
+[`docs/open-source-testing-stack.md`](docs/open-source-testing-stack.md).
+
+For the current Windows pilot, start the orchestrator, Hercules, Keploy, and k6
+workers together with an optional Cloudflare Quick Tunnel:
+
+```powershell
+.\scripts\start_local_stack.ps1 -WithTunnel
+```
+
+Strix is deliberately not registered or started by this script. After changing
+API keys in `.env`, restart the local services while keeping the current tunnel
+URL stable:
+
+```powershell
+.\scripts\restart_local_services.ps1
+```
 
 ## Demo local (không cần GitHub App)
 
@@ -86,7 +109,7 @@ Script ký payload, gửi webhook, poll run và in verdict. Sửa `calculator.ad
 
 ## Kết nối GitHub thật
 
-1. Tạo GitHub App với permissions: Metadata read, Contents read, Pull requests read, Checks read/write.
+1. Tạo GitHub App với permissions: Metadata read, Contents read, Pull requests read/write, Checks read/write. Quyền ghi Pull requests chỉ dùng để đăng review tổng quan; Agent-QC không merge hay sửa source.
 2. Subscribe sự kiện **Pull request** và dùng webhook URL HTTPS `<public-url>/webhooks/github`.
 3. Tạo webhook secret, download private key `.pem`, rồi cấu hình `.env`:
 
