@@ -1,0 +1,26 @@
+required_capabilities:
+  - security.secrets
+
+kill_switches:
+  capabilities: []
+  implementations: []
+  repositories: []
+  domains: []
+
+thresholds:
+  triage_min_conf: 0.9
+  max_confirmation_tasks_per_finding: 1
+
+verdict:
+  fail_on_worker_failure: true
+  fail_on_severity: [critical, high]
+
+# Add target only when a pilot repository has a reviewed base-branch start command.
+# target:
+#   type: http_service
+#   command: [python, -m, uvicorn, app.main:app, --port, "8080"]
+#   base_url: http://127.0.0.1:8080
+#   healthcheck: http://127.0.0.1:8080/health
+#   startup_timeout_seconds: 60
+#   environment:
+#     DATABASE_URL: secret://PILOT_DATABASE_URL
