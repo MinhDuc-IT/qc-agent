@@ -74,13 +74,19 @@ class SqliteRunStore:
             row = db.execute("SELECT payload FROM runs WHERE run_id = ?", (run_id,)).fetchone()
         return QCRun.model_validate(json.loads(row[0])) if row else None
 
-    def cancel_stale_runs(self, repository: str, new_head_sha: str) -> list[str]:
+    def cancel_stale_runs(self, repository: str, new_head_sha: str,
+                          pull_request_number: int | None = None) -> list[str]:
         cancelled: list[str] = []
         with self._connect() as db:
             rows = db.execute("SELECT run_id, payload FROM runs").fetchall()
             for run_id, payload in rows:
                 run = QCRun.model_validate_json(payload)
+                existing_pr = run.trigger_context.pull_request
+                same_change = (pull_request_number is None or
+                               (existing_pr is not None and
+                                existing_pr.number == pull_request_number))
                 if (run.trigger_context.repository.full_name == repository
+                        and same_change
                         and run.trigger_context.revision.head_sha != new_head_sha
                         and run.status in {"queued", "preparing", "running"}):
                     run.status = "cancelled"

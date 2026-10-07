@@ -44,7 +44,9 @@ class Orchestrator:
         workspace = None
         try:
             run.status = "preparing"
-            run.check_run_id = await self.checks.create_check(run)
+            if run.check_run_id is None:
+                run.check_run_id = await self.checks.create_check(run)
+            await self.checks.start_check(run)
             self.store.save_run(run)
             workspace = await self.source.prepare(run)
             if self._cancelled(run_id):
@@ -54,7 +56,8 @@ class Orchestrator:
                 self.analyzer.analyze, workspace, ctx.revision.base_sha, ctx.revision.head_sha
             )
             baseline = self.planner.create_plan(
-                run.run_id, run.analysis, run.requested_capabilities
+                run.run_id, run.analysis, run.requested_capabilities,
+                run.trigger_context.trigger.type,
             )
             run.agent_mode = self.planning_agent.mode
             try:

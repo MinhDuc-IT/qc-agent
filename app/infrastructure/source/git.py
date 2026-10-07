@@ -19,8 +19,17 @@ class GitRepositoryManager:
         self.dry_run = dry_run
 
     async def prepare(self, run: QCRun) -> Path:
-        workspace = (self.workspace_root / run.run_id).resolve()
-        workspace.parent.mkdir(parents=True, exist_ok=True)
+        workspace_root = self.workspace_root.resolve()
+        workspace = (workspace_root / run.run_id).resolve()
+        if workspace.parent != workspace_root:
+            raise RuntimeError(f"invalid run workspace: {workspace}")
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        # A process restart can recover an interrupted run from the durable
+        # queue while its partial checkout still exists. The workspace belongs
+        # exclusively to this run, so discard it before performing a fresh,
+        # immutable checkout of head_sha.
+        if workspace.exists():
+            await asyncio.to_thread(shutil.rmtree, workspace)
         ctx = run.trigger_context
         clone_url = ctx.repository.clone_url
         clone_args = ["git"]

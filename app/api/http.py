@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
@@ -75,18 +76,27 @@ orchestrator = Orchestrator(store, github, source, workers, planning_agent, resu
                             artifact_store, (JiraPublisher(), SlackPublisher()),
                             settings.agent_qc_worker_concurrency)
 queue_task: asyncio.Task | None = None
+logger = logging.getLogger(__name__)
 
 
 async def _queue_worker() -> None:
     while True:
-        run_id = await asyncio.to_thread(store.claim_next_run)
-        if run_id is None:
-            await asyncio.sleep(0.5)
-            continue
+        run_id = None
         try:
+            run_id = await asyncio.to_thread(store.claim_next_run)
+            if run_id is None:
+                await asyncio.sleep(0.5)
+                continue
             await orchestrator.execute(run_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            # One broken repository, publisher, or cleanup operation must not
+            # permanently stop delivery processing for every later webhook.
+            logger.exception("Queue worker failed while processing run %s", run_id)
         finally:
-            await asyncio.to_thread(store.complete_queued_run, run_id)
+            if run_id is not None:
+                await asyncio.to_thread(store.complete_queued_run, run_id)
 
 
 @asynccontextmanager
@@ -225,7 +235,13 @@ async def github_webhook(
     except (KeyError, TypeError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=f"Invalid GitHub payload: {exc}") from exc
     run = QCRun(trigger_context=context)
-    store.cancel_stale_runs(context.repository.full_name, context.revision.head_sha)
+    store.cancel_stale_runs(
+        context.repository.full_name, context.revision.head_sha,
+        context.pull_request.number if context.pull_request else None,
+    )
+    # Publish a queued Check Run before returning the webhook response so the
+    # PR immediately shows that Agent-QC received the review request.
+    run.check_run_id = await github.create_check(run)
     store.save_run(run)
     store.enqueue_run(run.run_id)
     return {"status": "queued", "run_id": run.run_id}

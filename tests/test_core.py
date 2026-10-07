@@ -17,7 +17,7 @@ from app.infrastructure.external_agents.registry import ExternalAgentRegistry
 from app.infrastructure.external_agents.runtime import ExternalAgentRuntime
 from app.infrastructure.agents.openai import OpenAIPlanningAgent
 from app.domain.models import (
-    AgentPlanProposal, AgentTaskProposal, ProjectDescriptor, RiskAssessment,
+    AgentPlanProposal, AgentTaskProposal, ProjectDescriptor, RiskAssessment, SourceAnalysis,
     ExternalAgentManifest, TaskTarget, WorkerResult, WorkerTask,
 )
 from app.infrastructure.github.webhook import verify_webhook_signature
@@ -156,6 +156,48 @@ def test_rules_select_integration_and_performance_without_tool_names():
     assert "security.secrets" in selected
 
 
+def test_capability_modes_select_always_affected_and_scheduled():
+    analysis = SourceAnalysis(
+        changed_files=["README.md"],
+        projects=[ProjectDescriptor(id="project", language="python", root=".")],
+        config={"quality": {
+            "security": {
+                "secrets": {"mode": "always"},
+                "sca": {"mode": "affected"},
+                "dast": {"mode": "scheduled"},
+            },
+            "functional": {"unit": {"mode": "affected"}},
+        }},
+    )
+    planner = CapabilityPlanner()
+
+    pull_request = planner.create_plan("pr", analysis, trigger_type="pull_request")
+    scheduled = planner.create_plan("nightly", analysis, trigger_type="schedule")
+
+    assert {task.capability for task in pull_request.tasks} == {"security.secrets"}
+    assert {task.capability for task in scheduled.tasks} == {
+        "security.secrets", "security.dast"
+    }
+
+
+def test_affected_mode_runs_when_diff_matches_capability():
+    analysis = SourceAnalysis(
+        changed_files=["requirements.txt", "src/service.py"],
+        projects=[ProjectDescriptor(id="project", language="python", root=".")],
+        config={"quality": {
+            "security": {"sca": {"mode": "affected"},
+                         "sast": {"mode": "affected"}},
+            "functional": {"unit": {"mode": "affected"}},
+        }},
+    )
+
+    plan = CapabilityPlanner().create_plan("pr", analysis, trigger_type="pull_request")
+
+    assert {task.capability for task in plan.tasks} >= {
+        "security.sca", "security.sast", "unit.run"
+    }
+
+
 def test_repository_policy_is_loaded_from_base_sha(tmp_path):
     subprocess.run(["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True)
     subprocess.run(["git", "config", "user.email", "qc@example.test"], cwd=tmp_path, check=True)
@@ -233,6 +275,40 @@ def test_github_review_title_and_summary_explain_non_secret_failure():
     assert "Recommended attention" in body
     assert "Confidence from completed checks" in body
     assert "Open the full Agent-QC report" in body
+
+
+def test_github_review_does_not_repeat_confirmation_finding():
+    context = normalize_pull_request(payload(), "delivery-confirmation-review")
+    primary_finding = Finding(
+        id="f-primary", severity="high", category="functional",
+        title="Add two numbers from the browser",
+        message="EXPECTED RESULT: The calculator displays 5. ACTUAL RESULT: It displayed 6.",
+    )
+    confirmation_finding = Finding(
+        id="f-confirmation", severity="high", category="functional",
+        title="Add two numbers from the browser",
+        message="EXPECTED RESULT: Calculator displays 5. ACTUAL RESULT: Calculator displayed 6.",
+    )
+    primary = WorkerResult(
+        task_id="primary", run_id="review", capability="functional.e2e",
+        execution_status="completed", verdict="fail", findings=[primary_finding],
+    )
+    confirmation = WorkerResult(
+        task_id="confirmation", run_id="review", capability="functional.e2e",
+        execution_status="completed", verdict="fail",
+        summary={"execution_purpose": "confirmation"},
+        findings=[confirmation_finding],
+    )
+    run = QCRun(run_id="review", trigger_context=context, status="completed",
+                verdict="fail", results=[primary, confirmation])
+
+    body = GitHubClient._review_body(run, None, "<!-- marker -->")
+    summary = GitHubClient._summary(run)
+
+    assert body.count("EXPECTED RESULT:") == 1
+    assert summary.count("EXPECTED RESULT:") == 1
+    assert "EXPECTED RESULT: Calculator displays 5" not in body
+    assert "EXPECTED RESULT: Calculator displays 5" not in summary
 
 
 def test_worker_task_rejects_unknown_root_fields():

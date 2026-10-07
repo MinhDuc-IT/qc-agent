@@ -81,11 +81,11 @@ class SemgrepAdapter(JsonSecurityAdapter):
     languages, executable = LANGUAGES, "semgrep"
 
     def build_argv(self, task: WorkerTask, project: ProjectDescriptor) -> tuple[str, ...]:
-        # `auto` requires metrics and can remain blocked while resolving a
-        # registry policy. Use a named, cacheable community ruleset and disable
-        # telemetry; the runtime timeout remains the hard failure boundary.
-        return ("semgrep", "scan", "--config", "p/default", "--metrics", "off",
-                "--no-git-ignore", "--json", "--error", ".")
+        # PR checks must not depend on Semgrep Registry availability. This
+        # reviewed ruleset is shipped with Agent-QC and versioned with the code.
+        ruleset = Path(__file__).resolve().parents[4] / "rules" / "semgrep" / "security.yaml"
+        return ("semgrep", "scan", "--config", str(ruleset), "--metrics", "off",
+                "--disable-version-check", "--no-git-ignore", "--json", "--error", ".")
 
     def parse_json(self, output: str, cwd: Path | None) -> tuple[list[Finding], dict[str, Any]]:
         payload = _json_payload(output)

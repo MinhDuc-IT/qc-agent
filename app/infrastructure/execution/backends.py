@@ -1,4 +1,5 @@
 import os
+import signal
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,13 +24,49 @@ class LocalExecutionBackend:
 
     def run(self, invocation: Invocation, timeout_seconds: int,
             environment: Mapping[str, str]) -> ExecutionOutput:
-        process = subprocess.run(
+        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+        process = subprocess.Popen(
             invocation.argv, cwd=invocation.cwd, stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             env={**os.environ, **invocation.environment, **environment},
-            shell=False, timeout=timeout_seconds, check=False,
+            shell=False, creationflags=creationflags,
+            start_new_session=os.name != "nt",
         )
-        return ExecutionOutput(process.returncode, process.stdout.decode(errors="replace"))
+        try:
+            output, _ = process.communicate(timeout=timeout_seconds)
+        except subprocess.TimeoutExpired as exc:
+            self._terminate_tree(process)
+            try:
+                remainder, _ = process.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                remainder, _ = process.communicate()
+            partial = exc.output or b""
+            if remainder and not partial.endswith(remainder):
+                partial += remainder
+            raise subprocess.TimeoutExpired(
+                invocation.argv, timeout_seconds, output=partial
+            ) from exc
+        return ExecutionOutput(process.returncode, output.decode(errors="replace"))
+
+    @staticmethod
+    def _terminate_tree(process: subprocess.Popen) -> None:
+        if process.poll() is not None:
+            return
+        if os.name == "nt":
+            # Semgrep launches semgrep-core. Killing only the Python/CLI wrapper
+            # leaves the core process holding stdout open, so communicate()
+            # never returns. taskkill /T terminates the complete descendant tree.
+            subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                timeout=10, check=False,
+            )
+        else:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
 
 
 class DockerExecutionBackend:

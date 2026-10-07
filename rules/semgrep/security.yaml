@@ -1,0 +1,39 @@
+rules:
+  - id: agent-qc.python.command-injection.subprocess-shell
+    message: User-controlled values may reach a subprocess invoked with shell=True.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: security
+      cwe: CWE-78
+    patterns:
+      - pattern: subprocess.$FUNC(..., shell=True, ...)
+
+  - id: agent-qc.python.command-injection.os-system
+    message: os.system executes a command through the operating-system shell.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: security
+      cwe: CWE-78
+    pattern: os.system(...)
+
+  - id: agent-qc.python.unsafe-eval
+    message: Avoid evaluating dynamically supplied Python expressions.
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: security
+      cwe: CWE-95
+    pattern: eval(...)
+
+  - id: agent-qc.javascript.command-injection.exec
+    message: child_process.exec invokes a command through a shell.
+    severity: ERROR
+    languages: [javascript, typescript]
+    metadata:
+      category: security
+      cwe: CWE-78
+    pattern-either:
+      - pattern: child_process.exec(...)
+      - pattern: $CHILD_PROCESS.exec(...)

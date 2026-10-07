@@ -69,11 +69,28 @@ class GitHubClient:
             response = await client.post(
                 f"/repos/{ctx.repository.full_name}/check-runs",
                 headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
-                json={"name": "Agent-QC", "head_sha": ctx.revision.head_sha, "status": "in_progress",
-                      "output": {"title": "Agent-QC is running", "summary": "Quality checks are being executed."}},
+                json={"name": "Agent-QC", "head_sha": ctx.revision.head_sha, "status": "queued",
+                      "output": {"title": "Agent-QC is queued",
+                                 "summary": "The review request was received and is waiting for execution."}},
             )
             response.raise_for_status()
             return response.json()["id"]
+
+    async def start_check(self, run: QCRun) -> None:
+        if self.dry_run or run.check_run_id is None:
+            return
+        ctx = run.trigger_context
+        token = await self.installation_token(ctx.installation.id)
+        async with httpx.AsyncClient(base_url="https://api.github.com") as client:
+            response = await client.patch(
+                f"/repos/{ctx.repository.full_name}/check-runs/{run.check_run_id}",
+                headers={"Authorization": f"Bearer {token}",
+                         "Accept": "application/vnd.github+json"},
+                json={"status": "in_progress",
+                      "output": {"title": "Agent-QC is running",
+                                 "summary": "Quality checks are being executed."}},
+            )
+            response.raise_for_status()
 
     async def complete_check(self, run: QCRun) -> None:
         if self.dry_run or run.check_run_id is None:
@@ -87,7 +104,7 @@ class GitHubClient:
         output = self._summary(run)
         annotations = []
         for result in run.results:
-            if result.capability.startswith("security."):
+            if result.capability.startswith("security.") or self._is_confirmation(result):
                 continue
             for finding in result.findings:
                 if finding.path and finding.start_line:
@@ -131,14 +148,38 @@ class GitHubClient:
             return window[:boundary + 1]
         return window[:limit - 1].rstrip() + "…"
 
+    @staticmethod
+    def _is_confirmation(result) -> bool:
+        return result.summary.get("execution_purpose") == "confirmation"
+
+    @classmethod
+    def _public_findings(cls, run: QCRun):
+        """Return unique primary findings suitable for public GitHub output."""
+        findings = []
+        seen = set()
+        for result in run.results:
+            if result.capability == "security.secrets" or cls._is_confirmation(result):
+                continue
+            for finding in result.findings:
+                key = (
+                    result.capability,
+                    finding.category,
+                    " ".join(finding.title.lower().split()),
+                    finding.path or "",
+                    finding.start_line,
+                )
+                if key in seen:
+                    continue
+                seen.add(key)
+                findings.append((result, finding))
+        return findings
+
     @classmethod
     def _review_body(cls, run: QCRun, check_url: str | None, marker: str) -> str:
         analysis = (run.agent_result_analysis.summary
                     if run.agent_result_analysis else cls._review_title(run))
         lines = [marker, "## Agent-QC review", "", analysis]
-        public_findings = [(result, finding) for result in run.results
-                           if result.capability != "security.secrets"
-                           for finding in result.findings]
+        public_findings = cls._public_findings(run)
         secret_count = sum(len(result.findings) for result in run.results
                            if result.capability == "security.secrets")
         if public_findings or secret_count:
@@ -155,7 +196,7 @@ class GitHubClient:
                     "are intentionally restricted to avoid exposing credentials."
                 )
         passed = [cls._capability_label(result.capability) for result in run.results
-                  if result.verdict == "pass"]
+                  if result.verdict == "pass" and not cls._is_confirmation(result)]
         if passed:
             lines += ["", "### Confidence from completed checks", "",
                       ", ".join(passed) + "."]
@@ -180,9 +221,7 @@ class GitHubClient:
         if secret_count:
             return ("The review found a potential secret that needs attention before merge. "
                     "Sensitive values and locations are hidden from this public summary.")
-        findings = [finding for result in run.results
-                    if result.capability != "security.secrets"
-                    for finding in result.findings]
+        findings = [finding for _, finding in cls._public_findings(run)]
         if run.verdict == "fail":
             if findings:
                 finding = findings[0]
@@ -252,9 +291,7 @@ class GitHubClient:
         failed = [result for result in run.results if result.verdict == "fail"]
         incomplete = [result for result in run.results
                       if result.execution_status != "completed"]
-        public_findings = [(result, finding) for result in run.results
-                           if result.capability != "security.secrets"
-                           for finding in result.findings]
+        public_findings = cls._public_findings(run)
         secret_count = sum(len(result.findings) for result in run.results
                            if result.capability == "security.secrets")
 

@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -38,7 +39,9 @@ def test_semgrep_uses_bounded_named_ruleset_without_metrics():
     argv = SemgrepAdapter().build_argv(
         worker_task(), ProjectDescriptor(id="project", root=".", language="python")
     )
-    assert argv[argv.index("--config") + 1] == "p/default"
+    ruleset = Path(argv[argv.index("--config") + 1])
+    assert ruleset.name == "security.yaml"
+    assert ruleset.is_file()
     assert argv[argv.index("--metrics") + 1] == "off"
     assert "--no-git-ignore" in argv
 

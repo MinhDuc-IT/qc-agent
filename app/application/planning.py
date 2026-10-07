@@ -16,11 +16,21 @@ class CapabilityPlanner:
     """Deterministic baseline planner; an LLM planner can emit the same contract later."""
 
     def create_plan(self, run_id: str, analysis: SourceAnalysis,
-                    requested_capabilities: list[str] | None = None) -> ExecutionPlan:
-        configured = self._configured_capabilities(analysis.config)
+                    requested_capabilities: list[str] | None = None,
+                    trigger_type: str = "pull_request") -> ExecutionPlan:
+        modes = self.capability_modes(analysis.config)
         required = self._required_capabilities(analysis.changed_files)
-        required.update(item for item in analysis.config.get("required_capabilities", [])
-                        if item in CATALOG)
+        policy_required = {item for item in analysis.config.get("required_capabilities", [])
+                           if item in CATALOG}
+        configured = {
+            capability for capability, mode in modes.items()
+            if mode == "always" or (mode == "affected" and capability in required)
+            or (mode == "scheduled" and trigger_type == "schedule")
+        }
+        for capability, mode in modes.items():
+            if mode == "disabled" or (mode == "scheduled" and trigger_type != "schedule"):
+                required.discard(capability)
+        required.update(policy_required)
         disabled = set(analysis.config.get("kill_switches", {}).get("capabilities", []))
         required.difference_update(disabled)
         configured.difference_update(disabled)
@@ -80,8 +90,8 @@ class CapabilityPlanner:
             ))
         return ExecutionPlan(run_id=run_id, tasks=self._deduplicate(tasks))
 
-    def _configured_capabilities(self, config: dict[str, Any]) -> set[str]:
-        selected: set[str] = set()
+    def capability_modes(self, config: dict[str, Any]) -> dict[str, str]:
+        selected: dict[str, str] = {}
         quality = config.get("quality")
         if isinstance(quality, dict):
             self._walk_quality("", quality, selected)
@@ -90,17 +100,23 @@ class CapabilityPlanner:
         if isinstance(workers, dict) and any(
             isinstance(value, dict) and value.get("enabled") for value in workers.values()
         ):
-            selected.add("unit.run")
+            selected.setdefault("unit.run", "always")
         return selected
 
-    def _walk_quality(self, prefix: str, node: dict[str, Any], selected: set[str]) -> None:
+    def _walk_quality(self, prefix: str, node: dict[str, Any],
+                      selected: dict[str, str]) -> None:
         for key, value in node.items():
             name = f"{prefix}.{key}" if prefix else key
-            if isinstance(value, dict) and "enabled" in value:
-                if value.get("enabled") in {True, "auto", "always"}:
-                    capability = self._canonical(name)
-                    if capability in CATALOG:
-                        selected.add(capability)
+            if isinstance(value, dict) and ("enabled" in value or "mode" in value):
+                raw = value.get("mode", value.get("enabled"))
+                mode = {
+                    True: "always", False: "disabled", "auto": "affected",
+                    "always": "always", "affected": "affected",
+                    "scheduled": "scheduled", "disabled": "disabled",
+                }.get(raw)
+                capability = self._canonical(name)
+                if capability in CATALOG and mode is not None:
+                    selected[capability] = mode
             elif isinstance(value, dict):
                 self._walk_quality(name, value, selected)
 
@@ -158,12 +174,20 @@ class PolicyValidator:
     def validate(self, plan: ExecutionPlan, analysis: SourceAnalysis,
                  trigger_type: str = "pull_request") -> ExecutionPlan:
         project_ids = {project.id for project in analysis.projects}
+        modes = CapabilityPlanner().capability_modes(analysis.config)
+        policy_required = set(analysis.config.get("required_capabilities", []))
         validated: list[WorkerTask] = []
         for task in plan.tasks:
             if task.capability not in CATALOG:
                 continue
             if task.target.project_id not in project_ids:
                 continue
+            mode = modes.get(task.capability)
+            if task.capability not in policy_required:
+                if mode == "disabled":
+                    continue
+                if mode == "scheduled" and trigger_type != "schedule":
+                    continue
             if task.capability == "security.dast" and trigger_type != "schedule":
                 continue
             switches = analysis.config.get("kill_switches", {})
