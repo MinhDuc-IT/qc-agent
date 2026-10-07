@@ -264,17 +264,17 @@ def test_github_review_title_and_summary_explain_non_secret_failure():
     summary = GitHubClient._summary(run)
     assert "CVE-2025-71176" in title
     assert "pytest 8.3.5" in title
-    assert "upgrade to 9.0.3" in title
+    assert "nâng cấp lên 9.0.3" in title
     assert "checks passed" not in title
-    assert "What needs attention" in summary
-    assert "Installed 8.3.5; fixed in 9.0.3." in summary
+    assert "Các vấn đề cần xử lý" in summary
+    assert "Phiên bản đang sử dụng: 8.3.5; phiên bản đã khắc phục: 9.0.3." in summary
     assert "Dependency security (SCA)" in summary
     assert "Unit tests" in summary
     body = GitHubClient._review_body(run, "https://github.example/check/1", "<!-- marker -->")
-    assert "Agent-QC review" in body
-    assert "Recommended attention" in body
-    assert "Confidence from completed checks" in body
-    assert "Open the full Agent-QC report" in body
+    assert "Đánh giá của Agent-QC" in body
+    assert "Các vấn đề cần xử lý" in body
+    assert "Các hạng mục đã kiểm tra đạt" in body
+    assert "Xem báo cáo đầy đủ" in body
 
 
 def test_github_review_does_not_repeat_confirmation_finding():

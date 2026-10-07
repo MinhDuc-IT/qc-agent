@@ -19,7 +19,7 @@ class FallbackPlanningAgent:
     mode = "fallback"
 
     def propose(self, analysis: SourceAnalysis) -> AgentPlanProposal:
-        return AgentPlanProposal(summary="LLM planning unavailable; deterministic baseline used.")
+        return AgentPlanProposal(summary="Chưa có phân tích từ AI; test plan được lập theo bộ quy tắc mặc định.")
 
 
 class FallbackResultAnalysisAgent:
@@ -28,6 +28,6 @@ class FallbackResultAnalysisAgent:
     def analyze(self, analysis: SourceAnalysis, results: list[WorkerResult]) -> AgentResultAnalysis:
         failures = [result for result in results if result.verdict == "fail"]
         return AgentResultAnalysis(
-            summary=(f"{len(failures)} failed QC task(s); LLM result analysis unavailable."
-                     if failures else "No failed QC tasks; LLM result analysis unavailable."),
+            summary=(f"Có {len(failures)} test task không đạt. Chưa có phân tích root cause từ AI."
+                     if failures else "Không có test task nào báo lỗi. Chưa có phân tích bổ sung từ AI."),
         )

@@ -1,6 +1,7 @@
 import os
 import signal
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Protocol
@@ -25,8 +26,11 @@ class LocalExecutionBackend:
     def run(self, invocation: Invocation, timeout_seconds: int,
             environment: Mapping[str, str]) -> ExecutionOutput:
         creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+        argv = list(invocation.argv)
+        if argv[0].lower() in {"python", "python.exe", "python3", "python3.exe"}:
+            argv[0] = sys.executable
         process = subprocess.Popen(
-            invocation.argv, cwd=invocation.cwd, stdout=subprocess.PIPE,
+            argv, cwd=invocation.cwd, stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             env={**os.environ, **invocation.environment, **environment},
             shell=False, creationflags=creationflags,

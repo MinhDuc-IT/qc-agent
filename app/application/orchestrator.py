@@ -65,7 +65,7 @@ class Orchestrator:
             except Exception as exc:
                 run.agent_mode = "fallback"
                 run.agent_error = f"Planning agent failed: {type(exc).__name__}: {exc}"
-                run.agent_plan = AgentPlanProposal(summary="Agent failed; deterministic baseline used.")
+                run.agent_plan = AgentPlanProposal(summary="AI lập kế hoạch gặp lỗi; sử dụng test plan theo bộ quy tắc mặc định.")
             planner_input = json.dumps(run.analysis.model_dump(mode="json"), sort_keys=True).encode()
             self.store.append_decision(DecisionLog(
                 run_id=run.run_id, component="planner", rationale=run.agent_plan.summary,
@@ -129,7 +129,7 @@ class Orchestrator:
                 detail = f"Result agent failed: {type(exc).__name__}: {exc}"
                 run.agent_error = f"{run.agent_error}; {detail}" if run.agent_error else detail
                 run.agent_result_analysis = AgentResultAnalysis(
-                    summary="Agent result analysis failed; deterministic verdict preserved."
+                    summary="AI phân tích kết quả gặp lỗi; kết luận kiểm thử vẫn được xác định theo bộ quy tắc."
                 )
             if self.artifact_store is not None and run.agent_result_analysis is not None:
                 self.artifact_store.save_self_heal_suggestion(

@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 from threading import Lock
@@ -32,6 +33,11 @@ class LocalTargetProvisioner:
         if not isinstance(healthcheck, str) or not isinstance(base_url, str):
             raise TargetUnavailable("target.healthcheck and target.base_url are required")
         environment = self._resolve_environment(config.get("environment", {}))
+        # Starting QC via an explicit venv executable does not activate its PATH.
+        # Keep Python targets on that interpreter rather than the system Python.
+        command = list(command)
+        if command[0].lower() in {"python", "python.exe", "python3", "python3.exe"}:
+            command[0] = sys.executable
         flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         process = subprocess.Popen(
             command, cwd=workspace, env={**os.environ, **environment}, shell=False,
