@@ -269,6 +269,7 @@ class ExternalAgentRun(BaseModel):
 
 
 class QCRun(BaseModel):
+    managed_baseline: dict[str, Any] | None = None
     model_config = ConfigDict(extra="forbid")
     schema_version: str = "1.1"
     run_id: str = Field(default_factory=lambda: f"run_{uuid4().hex}")

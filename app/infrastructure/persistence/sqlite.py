@@ -51,6 +51,10 @@ class SqliteRunStore:
         except sqlite3.IntegrityError:
             return False
 
+    def release_delivery(self, delivery_id: str) -> None:
+        with self._connect() as db:
+            db.execute("DELETE FROM deliveries WHERE delivery_id=?", (delivery_id,))
+
     def save_run(self, run: QCRun) -> None:
         payload = run.model_dump_json()
         with self._connect() as db:

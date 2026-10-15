@@ -13,6 +13,8 @@ CATALOG = {
     item.id: item
     for item in [
         Capability("unit.run", ("repository",)),
+        Capability("baseline.http", ("http_service",), True, 180),
+        Capability("baseline.repository", ("repository",), False, 300),
         Capability("functional.api", ("openapi", "http_service"), True, 1800),
         Capability("functional.e2e", ("web_app", "mobile_app"), True, 1800),
         Capability("functional.exploratory", ("web_app",), True, 1800),
