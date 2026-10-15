@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
 import logging
 import re
+import time
+from urllib.parse import quote
 from pathlib import Path
 
 import httpx
@@ -19,23 +21,106 @@ class GitHubClient:
         self.private_key_path = private_key_path
         self.dry_run = dry_run
         self.publish_pr_review = publish_pr_review
+        self._token_cache = {}
 
-    async def installation_token(self, installation_id: int) -> str:
+    async def _installation_get(self, installation_id, path, params=None):
+        token = await self.installation_token(installation_id)
+        async with httpx.AsyncClient(base_url="https://api.github.com", timeout=20) as client:
+            response = await client.get(path, params=params, headers={"Authorization": f"Bearer {token}",
+                                                                       "Accept": "application/vnd.github+json"})
+            response.raise_for_status()
+            return response.json()
+
+    async def describe_repository(self, installation_id, full_name):
+        repository = await self._installation_get(installation_id, f"/repos/{full_name}")
+        commits = await self._installation_get(installation_id, f"/repos/{full_name}/commits",
+                                                {"sha": repository["default_branch"], "per_page": 1})
+        return {"repository": repository, "sha": commits[0]["sha"]}
+
+    async def document_paths(self, installation_id, full_name):
+        from ..test_design.discovery import SourceDiscovery
+        info = await self.describe_repository(installation_id, full_name)
+        tree = await self._installation_get(installation_id,
+            f"/repos/{full_name}/git/trees/{info['sha']}", {"recursive": "1"})
+        if tree.get("truncated"):
+            raise ValueError("Repository tree is truncated")
+        files, folders = [], set()
+        for entry in tree.get("tree", []):
+            path = Path(entry["path"])
+            if (entry.get("type") != "blob" or entry.get("mode") == "120000"
+                    or SourceDiscovery.EXCLUDED.intersection(path.parts)
+                    or any(part.startswith(".env") for part in path.parts)
+                    or path.suffix.lower() not in {".md", ".txt", ".rst", ".json", ".yaml", ".yml"}):
+                continue
+            files.append({"path": entry["path"], "type": "file"})
+            for parent in path.parents:
+                if parent != Path("."):
+                    folders.add(parent.as_posix())
+        if len(files) + len(folders) > 10000:
+            raise ValueError("Too many document paths")
+        return {"revision": info["sha"], "entries":
+            [{"path": folder, "type": "folder"} for folder in sorted(folders)] +
+            sorted(files, key=lambda entry: entry["path"])}
+
+    async def installation_repositories(self, installation_id):
+        repositories = []
+        page = 1
+        while True:
+            data = await self._installation_get(installation_id, "/installation/repositories",
+                                                {"per_page": 100, "page": page})
+            repositories.extend(data["repositories"])
+            if len(data["repositories"]) < 100:
+                return repositories
+            page += 1
+
+    def _app_jwt(self):
         if not self.app_id or not self.private_key_path:
             raise RuntimeError("GitHub App credentials are not configured")
         now = datetime.now(timezone.utc)
-        app_jwt = jwt.encode(
-            {"iat": now - timedelta(seconds=60), "exp": now + timedelta(minutes=9), "iss": self.app_id},
-            self.private_key_path.read_text(encoding="utf-8"),
-            algorithm="RS256",
-        )
+        return jwt.encode({"iat": now - timedelta(seconds=60), "exp": now + timedelta(minutes=9), "iss": self.app_id},
+                          self.private_key_path.read_text(encoding="utf-8"), algorithm="RS256")
+
+    async def app_installations(self):
+        installations = []
+        async with httpx.AsyncClient(base_url="https://api.github.com", timeout=20) as client:
+            page = 1
+            while True:
+                response = await client.get("/app/installations", params={"per_page": 100, "page": page},
+                                            headers={"Authorization": "Bearer " + self._app_jwt(), "Accept": "application/vnd.github+json"})
+                response.raise_for_status()
+                batch = response.json()
+                installations.extend(batch)
+                if len(batch) < 100:
+                    return installations
+                page += 1
+
+    async def repository_permission(self, installation_id, full_name, login, user_id=None):
+        try:
+            data = await self._installation_get(installation_id, f"/repos/{full_name}/collaborators/{quote(login, safe='')}/permission")
+            if user_id is not None and data.get("user", {}).get("id") != user_id:
+                return "none"
+            return data.get("permission", "none")
+        except httpx.HTTPStatusError as error:
+            if error.response.status_code in {403, 404}:
+                return "none"
+            raise
+
+    async def installation_token(self, installation_id: int) -> str:
+        cached = self._token_cache.get(installation_id)
+        if cached and cached[1] > time.time():
+            return cached[0]
+        if not self.app_id or not self.private_key_path:
+            raise RuntimeError("GitHub App credentials are not configured")
+        app_jwt = self._app_jwt()
         async with httpx.AsyncClient(base_url="https://api.github.com") as client:
             response = await client.post(
                 f"/app/installations/{installation_id}/access_tokens",
                 headers={"Authorization": f"Bearer {app_jwt}", "Accept": "application/vnd.github+json"},
             )
             response.raise_for_status()
-            return response.json()["token"]
+            token = response.json()["token"]
+            self._token_cache[installation_id] = (token, time.time() + 3000)
+            return token
 
     async def _publish_pr_review(self, run: QCRun, token: str,
                                  check_url: str | None) -> None:
