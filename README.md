@@ -1,5 +1,15 @@
 # Agent-QC GitHub demo
 
+## Managed Test Design Agent
+
+The existing GitHub App now supports automatic repository onboarding, a durable TDA queue,
+LLM-generated draft baselines, reference validation and a GitHub-authenticated review portal
+at `/app`. Once a maintainer approves a baseline, PR runs automatically pin and execute it
+through the managed `baseline.http` runtime. Repositories do not need TDA CLI commands,
+worker registration or baseline version edits. See
+[`docs/github-app-test-design.md`](docs/github-app-test-design.md) for the one-time App backend
+and OAuth setup, source discovery and current pilot limits.
+
 > Implementation status for `QC_AGENT_SPEC_v2.md`: see
 > [`docs/spec-v2-implementation.md`](docs/spec-v2-implementation.md).
 
@@ -134,3 +144,19 @@ AGENT_QC_DRY_RUN=false
 ## Giới hạn có chủ ý của demo
 
 Worker hiện chạy trực tiếp trên host. Trước production cần container sandbox, queue bền vững, timeout/concurrency policy, stale-run cancellation, artifact storage và secret manager. SQLite đã cung cấp delivery dedup và run persistence ở mức demo.
+# Multi-runner TDA
+
+GitHub App mặc định dùng [Test Design Workspace](docs/test-design-workspace.md): test case nghiệp vụ tách khỏi automation binding, có editor, review từng case, version history và publish subset cho QC.
+
+TDA/QC hỗ trợ HTTP, unit Python/JavaScript, Playwright, k6 và đánh giá AI theo baseline được duyệt. Xem [phạm vi và vận hành](docs/multi-runner-testing.md).
+
+Source TDA nằm trong [packages/test-design-agent](packages/test-design-agent/README.md), giữ package `tda` riêng với domain, application, infrastructure, schemas và tests riêng. Chỉ cần clone repo QC để phát triển hoặc deploy.
+
+```powershell
+.venv\Scripts\python.exe -m pip install -r requirements.txt -r requirements-tda.txt
+.venv\Scripts\python.exe -m pytest
+docker build -f Dockerfile.with-tda -t agent-qc-with-tda .
+```
+
+Chạy các lệnh trên từ thư mục `qc-agent`. `pytest.ini` gom tests QC và TDA; Docker build cũng dùng repo này làm context. API key, design job, baseline storage và luồng review/PR giữ nguyên.
+
