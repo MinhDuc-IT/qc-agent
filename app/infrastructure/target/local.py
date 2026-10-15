@@ -15,7 +15,7 @@ class LocalTargetProvisioner:
     """Runs a trusted base-sha target declaration directly on the Windows pilot host."""
 
     def __init__(self, secrets: Mapping[str, str] | None = None):
-        self.secrets = secrets or os.environ
+        self.secrets = os.environ if secrets is None else secrets
         self._processes: dict[str, subprocess.Popen] = {}
         self._lock = Lock()
 
@@ -32,15 +32,24 @@ class LocalTargetProvisioner:
             raise TargetUnavailable("target.command must be a non-empty argv list")
         if not isinstance(healthcheck, str) or not isinstance(base_url, str):
             raise TargetUnavailable("target.healthcheck and target.base_url are required")
-        environment = self._resolve_environment(config.get("environment", {}))
+        secret_config = config.get("environment", {})
+        if getattr(run, "managed_baseline", None):
+            prefix = f"secret://PROJECT_{run.trigger_context.installation.id}_{run.managed_baseline['repository_id']}_"
+            if not isinstance(secret_config, dict) or any(not isinstance(ref, str) or not ref.startswith(prefix)
+                                                         for ref in secret_config.values()):
+                raise TargetUnavailable("Managed target secrets must be scoped to this installation/repository")
+        environment = self._resolve_environment(secret_config)
         # Starting QC via an explicit venv executable does not activate its PATH.
         # Keep Python targets on that interpreter rather than the system Python.
         command = list(command)
         if command[0].lower() in {"python", "python.exe", "python3", "python3.exe"}:
             command[0] = sys.executable
         flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+        inherited = {name: value for name, value in os.environ.items() if name.upper() in {
+            "PATH", "PATHEXT", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "HOME", "USERPROFILE",
+            "APPDATA", "LOCALAPPDATA", "VIRTUAL_ENV", "PYTHONUTF8", "PYTHONIOENCODING", "LANG", "LC_ALL"}}
         process = subprocess.Popen(
-            command, cwd=workspace, env={**os.environ, **environment}, shell=False,
+            command, cwd=workspace, env={**inherited, **environment}, shell=False,
             stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, creationflags=flags,
         )
         with self._lock:

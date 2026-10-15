@@ -8,11 +8,14 @@ from .runtime import RegisteredWorkerRuntime
 class HybridWorkerRuntime:
     """Routes to specialized external agents first, with explicit tool fallback."""
 
-    def __init__(self, external_agents: ExternalAgentRuntime, tools: RegisteredWorkerRuntime):
+    def __init__(self, external_agents: ExternalAgentRuntime, tools: RegisteredWorkerRuntime, managed_baselines=None):
         self.external_agents = external_agents
         self.tools = tools
+        self.managed_baselines = managed_baselines
 
     def execute(self, task: WorkerTask, project: ProjectDescriptor, workspace: Path) -> WorkerResult:
+        if self.managed_baselines is not None and task.capability in {"baseline.http", "baseline.repository"} and task.parameters.get("managed_project_id"):
+            return self.managed_baselines.execute(task, project, workspace)
         if task.execution_preference != "tool":
             external_result = self.external_agents.execute(task, project, workspace)
             if external_result is not None:

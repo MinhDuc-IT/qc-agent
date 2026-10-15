@@ -20,7 +20,8 @@ class Orchestrator:
                  target_provisioner: TargetProvisioner | None = None,
                  analyzer: RepositoryAnalyzer | None = None,
                  triage_agent=None, triage_min_confidence: float = 0.9,
-                 artifact_store=None, side_publishers=(), worker_concurrency: int = 4):
+                 artifact_store=None, side_publishers=(), worker_concurrency: int = 4,
+                 baseline_binding=None, target_lock=None):
         self.store = store
         self.checks = checks
         self.source = source
@@ -36,12 +37,15 @@ class Orchestrator:
         self.artifact_store = artifact_store
         self.side_publishers = side_publishers
         self.worker_slots = asyncio.Semaphore(max(1, worker_concurrency))
+        self.baseline_binding = baseline_binding
+        self.target_lock = target_lock
 
     async def execute(self, run_id: str) -> None:
         run = self.store.get_run(run_id)
         if not run:
             return
         workspace = None
+        target_locked = False
         try:
             run.status = "preparing"
             if run.check_run_id is None:
@@ -55,6 +59,8 @@ class Orchestrator:
             run.analysis = await asyncio.to_thread(
                 self.analyzer.analyze, workspace, ctx.revision.base_sha, ctx.revision.head_sha
             )
+            if self.baseline_binding is not None:
+                self.baseline_binding.prepare(run)
             baseline = self.planner.create_plan(
                 run.run_id, run.analysis, run.requested_capabilities,
                 run.trigger_context.trigger.type,
@@ -78,11 +84,16 @@ class Orchestrator:
             run.plan = self.policy.validate(
                 proposed, run.analysis, run.trigger_context.trigger.type
             )
+            if self.baseline_binding is not None:
+                self.baseline_binding.attach(run)
             target_tasks = [task for task in run.plan.tasks
                             if CATALOG[task.capability].needs_running_target]
             if target_tasks:
                 if self.target_provisioner is None:
                     raise RuntimeError("TARGET_UNAVAILABLE: target provisioner is disabled")
+                if self.target_lock is not None:
+                    await self.target_lock.acquire()
+                    target_locked = True
                 target = await asyncio.to_thread(
                     self.target_provisioner.provision, run, run.analysis, workspace
                 )
@@ -146,16 +157,22 @@ class Orchestrator:
             run.verdict = "unknown"
             run.error = f"{type(exc).__name__}: {exc}"
         finally:
-            current = self.store.get_run(run.run_id)
-            if current is not None and current.status == "cancelled":
-                run = current
-            else:
-                self.store.save_run(run)
-            await self.checks.complete_check(run)
-            if self.target_provisioner is not None:
-                self.target_provisioner.cleanup(run.run_id)
-            if workspace is not None:
-                self.source.cleanup(workspace)
+            try:
+                current = self.store.get_run(run.run_id)
+                if current is not None and current.status == "cancelled":
+                    run = current
+                else:
+                    self.store.save_run(run)
+                await self.checks.complete_check(run)
+            finally:
+                try:
+                    if self.target_provisioner is not None:
+                        self.target_provisioner.cleanup(run.run_id)
+                finally:
+                    if target_locked:
+                        self.target_lock.release()
+                    if workspace is not None:
+                        self.source.cleanup(workspace)
 
     def _cancelled(self, run_id: str) -> bool:
         current = self.store.get_run(run_id)
