@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent-QC · Thiết kế test</title>
+<script>
+document.documentElement.dataset.theme=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+</script>
+<style>
+.baseline-index{width:100%;border-collapse:collapse;font-size:13px}.baseline-index th,.baseline-index td{padding:12px;text-align:left;border-bottom:1px solid var(--border)}.baseline-index th{background:var(--subtle)}.baseline-index p{margin:4px 0}.case-job-progress .spinner{display:inline-block;margin-right:10px;vertical-align:middle}
+.case-table th:first-child,.case-table .case-summary-row>td:first-child{position:sticky;left:0;background:var(--bg);z-index:1}.case-table th:last-child,.case-table .case-summary-row>td:last-child{position:sticky;right:0;background:var(--bg);z-index:1;border-left:1px solid var(--border)}.case-table th:first-child,.case-table th:last-child{background:var(--subtle);z-index:2}
+.case-table-wrap{overflow-x:auto;margin:0 20px;border:1px solid var(--border);border-radius:6px}.case-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px;background:var(--bg)}.case-table caption{text-align:left;padding:14px;font-weight:600}.case-table th{background:var(--subtle);text-align:left;font-weight:600;padding:10px 8px;border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.case-table td{vertical-align:top;padding:10px 8px;border-bottom:1px solid var(--border);overflow-wrap:anywhere}.cell-preview{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line;line-height:1.5}.case-table .case-title>strong{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.case-table .case-title>p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:4px 0}.case-table .state{white-space:normal;margin:0;font-size:11px}.case-table .case-controls{margin:0;min-width:0}.case-table .case-controls button{white-space:normal;padding:4px 6px}.case-table .case-detail-row>td{padding:0;background:var(--subtle)}.case-detail-row article.case{margin:0;padding:16px;border:0}.case-table tbody>tr:not(.case-detail-row):hover{background:var(--hover)}@media(max-width:900px){.case-table{min-width:850px}}
+.review-toolbar,.review-decision{margin:16px 20px;padding:16px;border:1px solid var(--border);border-radius:6px;background:var(--subtle)}.review-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.review-toolbar input{flex:1;min-width:170px}.review-decision h3{margin:0 0 8px}.review-checks{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.review-checks span{padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px}.case-list{margin:0 20px}.case-list .case{padding:16px;border:1px solid var(--border);border-radius:6px;margin:10px 0;background:var(--bg)}.case-controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.case-controls button{font-size:12px;padding:5px 10px}.case-body>summary{color:var(--accent);cursor:pointer}.case-body{border-top:1px solid var(--border);padding-top:10px}.case-body .test-step{margin:10px 0}.review-counter{font-size:12px;color:var(--muted)}.case-empty{padding:24px;color:var(--muted)}@media(max-width:640px){.case-heading{flex-direction:column}.review-toolbar select{width:100%}}
+select{background:var(--subtle);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font:inherit;max-width:100%}.case-review form{display:grid;gap:10px}.case-review form p{margin:0}.case-review textarea{width:100%;box-sizing:border-box}
+:root{color-scheme:light;--bg:#fff;--subtle:#f6f8fa;--border:#d1d9e0;--text:#1f2328;--muted:#59636e;--accent:#0969da;--green:#1f883d;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px;color:var(--text);background:var(--bg)}
+*{box-sizing:border-box}body{margin:0;line-height:1.5}.hidden{display:none!important}nav{display:flex;gap:10px;align-items:center;flex-wrap:wrap}details summary{cursor:pointer}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:480px;overflow:auto}label{display:block}textarea,input[type=text]{width:100%}button,input,textarea{font-family:inherit}a{color:var(--accent)}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 32px;gap:24px;background:var(--subtle);color:var(--text);border-bottom:1px solid var(--border);min-height:72px}
+.brand{display:flex;gap:14px;align-items:center}.brand-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:8px;background:var(--text);color:white;font-size:18px;font-weight:700;letter-spacing:-2px}.brand h1{font-size:16px;font-weight:600;margin:0}.brand p{font-size:12px;color:var(--muted);margin:1px 0 0}.brand-divider{height:28px;border-left:1px solid var(--border);margin:0 2px}
+header nav{margin-left:auto;gap:12px}#identity{font-weight:600;font-size:13px}header .button,header button{font-size:12px;padding:5px 12px}
+.page-nav{display:flex;gap:24px;background:var(--subtle);padding:0 32px;border-bottom:1px solid var(--border);height:48px;align-items:stretch}.page-tab{display:flex;align-items:center;gap:8px;padding:0 10px;color:var(--text);font-weight:600;border-bottom:2px solid #fd8c73}.tab-symbol{color:var(--muted);font-weight:400}.page-nav .nav-note{align-self:center;margin-left:auto;color:var(--muted);font-size:12px}
+main{max-width:1440px;padding:0 32px;margin:28px auto 48px}.panel{border:1px solid var(--border);border-radius:6px;background:var(--bg);padding:24px;margin-bottom:24px;box-shadow:0 1px 0 rgba(31,35,40,.04)}
+.grid{display:grid;grid-template-columns:260px minmax(0,1fr);gap:24px;align-items:start}.grid>section{min-width:0}aside.panel{padding:16px 12px;background:var(--subtle);position:sticky;top:20px}aside h2{font-size:14px;padding:0 8px;margin-bottom:16px}aside h2::before{content:'▣';color:var(--muted);margin-right:8px}
+.project{border:1px solid transparent;background:transparent;border-radius:6px;padding:10px 12px;margin:4px 0;color:var(--text);position:relative;overflow-wrap:anywhere;box-shadow:none}.project:hover{background:#eaeef2;border-color:transparent}.project.selected{background:#eaeef2;border-color:transparent}.project.selected::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--accent)}.project strong{font-size:13px;font-weight:600}.project .state{font-size:11px;margin:6px 0 0}
+h2{font-size:18px;font-weight:600;line-height:1.4;margin:0 0 12px;overflow-wrap:anywhere}h3{font-size:14px;font-weight:600;margin:24px 0 12px}p{margin:8px 0 16px}.muted,small{color:var(--muted);font-size:12px}
+#welcome{display:flex;gap:24px;align-items:center;padding:24px;background:var(--subtle)}.welcome-icon{flex-shrink:0;width:48px;height:48px;border:1px solid var(--border);border-radius:12px;display:grid;place-items:center;background:white;color:var(--green);font-size:24px}.welcome-copy h2{font-size:16px;margin-bottom:6px}.welcome-copy p{margin:4px 0;font-size:13px}.welcome-copy .muted{font-size:12px}.welcome-tag{margin-left:auto;flex-shrink:0;font-size:12px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:white;color:var(--muted)}
+button,a.button{cursor:pointer;text-decoration:none;background:var(--green);border:1px solid rgba(31,35,40,.15);color:white;border-radius:6px;padding:5px 16px;font-size:13px;font-weight:500;line-height:20px;box-shadow:0 1px 0 rgba(31,35,40,.1);transition:background .12s}button:hover,a.button:hover{background:#1a7f37}button.secondary,header .button{background:var(--subtle);color:var(--text);border-color:var(--border)}button.secondary:hover,header .button:hover{background:#eff2f5;border-color:#b6bec7}button.danger{color:#cf222e;background:var(--subtle);border-color:var(--border)}button.danger:hover{background:#a40e26;color:white;border-color:#a40e26}button:disabled{opacity:.5;cursor:default}button:disabled:hover{background:var(--subtle);color:var(--muted)}button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.state{background:var(--subtle);border:1px solid var(--border);color:var(--muted);padding:2px 9px;border-radius:20px;font-size:12px;font-weight:500;margin:0 0 12px}.state[data-state=active],.state[data-state=approved]{background:#dafbe1;border-color:#aceebb;color:#116329}.state[data-state=needs_changes],.state[data-state=needs_sources],.state[data-state=needs_environment]{background:#fff8c5;border-color:#eac54f;color:#7d4e00}.state[data-state=failed],.state[data-state=execution_failed],.state[data-state=rejected]{background:#ffebe9;border-color:#ff8182;color:#cf222e}.state[data-state=designing],.state[data-state=queued],.state[data-state=ready_for_review]{background:#ddf4ff;border-color:#80ccff;color:#0550ae}
+form{border-top:1px solid var(--border);margin-top:20px;padding-top:4px}label{font-size:13px;font-weight:500;margin:16px 0}label.check{font-weight:400;font-size:12px;margin:8px 0}textarea,input[type=text]{background:var(--subtle);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:13px;margin:8px 0 0;box-shadow:inset 0 1px 0 rgba(31,35,40,.04);line-height:1.5}textarea{resize:vertical}textarea:focus,input[type=text]:focus{outline:2px solid var(--accent);outline-offset:-1px;background:white}input[type=checkbox]{accent-color:var(--accent);vertical-align:middle;margin-right:6px}form nav{border-top:1px solid var(--border);padding-top:16px;margin-top:20px;gap:8px}
+.error{background:#ffebe9;border:1px solid #ff8182;color:#82071e;padding:12px 16px;border-radius:6px;font-size:13px;white-space:pre-line;overflow-wrap:anywhere}.notice{background:#ddf4ff;border:1px solid #54aeff;color:#0550ae;border-radius:6px;padding:12px 16px;font-size:13px}#feedback{top:12px;box-shadow:0 3px 12px rgba(31,35,40,.1)}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin:20px 0}.metric{background:var(--subtle);padding:14px;min-width:0;font-size:12px;border-right:1px solid var(--border);font-variant-numeric:tabular-nums}.metric:last-child{border-right:0}
+.case{padding:16px 0;border-top:1px solid var(--border)}.case>strong{font-size:14px;font-weight:600}.case>p{margin:5px 0}.case details{margin:12px 0 0}.case summary{color:var(--accent);font-size:12px}details{margin:16px 0}summary{font-size:13px;font-weight:500;padding:4px 0}details[open]>summary{margin-bottom:8px}pre{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.65;background:var(--subtle);border:1px solid var(--border);border-radius:6px;margin:8px 0;padding:16px}#review>nav{border-top:1px solid var(--border);padding-top:20px;margin-top:24px}
+.page-footer{border-top:1px solid var(--border);max-width:1376px;margin:48px auto 0;padding:24px 0;display:flex;justify-content:space-between;gap:16px;color:var(--muted);font-size:12px}.footer-brand{font-weight:600} .repo-heading{color:var(--accent)}
+@media(max-width:900px){header{padding:16px 20px}.page-nav{padding:0 20px}main{padding:0 20px}.grid{grid-template-columns:220px minmax(0,1fr)}.welcome-tag{display:none}.page-footer{margin:32px 20px 0}}
+@media(max-width:700px){header{flex-direction:column;align-items:stretch;gap:16px}header nav{margin-left:0;gap:8px}.brand-divider{display:none}.page-nav .nav-note{display:none}main{padding:0 12px;margin-top:16px}.grid{grid-template-columns:1fr;gap:0}aside.panel{position:static;padding:12px}#projects{display:flex;gap:8px;overflow-x:auto}.project{min-width:210px;margin:0}.panel{padding:16px;margin-bottom:16px}#welcome{padding:16px;gap:12px;align-items:start}.welcome-icon{width:36px;height:36px;font-size:18px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{border-bottom:1px solid var(--border)}.page-footer{flex-direction:column;margin:24px 12px 0}nav button{flex-grow:1}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<style>
+#review>.review-blockers,#review>.review-limits,#review>.scope-caption{margin:16px 20px}.review-blockers{border:1px solid var(--danger);border-radius:6px;background:var(--danger-bg);color:var(--danger-text);padding:14px 16px}.review-blockers>strong{font-size:14px}.review-blockers details{margin:12px 0 0;border-top:1px solid var(--border);padding-top:8px}.review-blockers summary{font-weight:600}.review-blockers ul,.review-limits ul{padding-left:20px;margin:8px 0;max-height:320px;overflow:auto}.review-blockers li,.review-limits li{font-size:13px;line-height:1.6;margin:8px 0;overflow-wrap:anywhere}.review-limits{border:1px solid var(--border);border-radius:6px;padding:10px 16px;background:var(--subtle)}.review-limits summary{color:var(--muted)}
+</style>
+<style>
+:root{--hover:#eaeef2;--danger:#cf222e;--success-bg:#dafbe1;--success-text:#116329;--warning-bg:#fff8c5;--warning-text:#7d4e00;--danger-bg:#ffebe9;--danger-text:#82071e;--info-bg:#ddf4ff;--info-text:#0550ae}
+:root[data-theme=dark]{color-scheme:dark;--bg:#0d1117;--subtle:#161b22;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--green:#238636;--hover:#21262d;--danger:#f85149;--success-bg:#12261e;--success-text:#3fb950;--warning-bg:#302610;--warning-text:#d29922;--danger-bg:#301a1e;--danger-text:#ff7b72;--info-bg:#121f30;--info-text:#79c0ff}
+body{background:var(--bg);color:var(--text)}header{min-height:64px;padding:16px 24px;border-bottom:0}.brand p,.brand-divider{display:none}.brand-mark{border-radius:50%;background:var(--text);color:var(--bg);letter-spacing:-1px;width:32px;height:32px;font-size:13px}.brand h1{font-size:14px}.brand h1 .muted{font-size:14px}
+.page-nav{display:none}.repo-banner{background:var(--subtle);border-bottom:1px solid var(--border);padding:8px 32px 0}.repo-title-row{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:1376px;margin:8px auto 16px}.repo-title-row h2{display:flex;align-items:center;gap:8px;margin:0;font-size:20px;font-weight:400;color:var(--accent)}.repo-title-row h2 strong{font-weight:600}.repo-icon{color:var(--muted)}.repo-badge{font-size:12px;font-weight:500;border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:0 8px}.repo-switch{position:relative}.repo-switch>button{background:var(--subtle);border-color:var(--border);color:var(--text)}#repository-menu{position:absolute;right:0;top:40px;z-index:10;width:320px;max-height:400px;overflow:auto;box-shadow:0 8px 24px #0003;padding:12px;background:var(--bg)}#repository-menu h2{font-size:13px;margin:4px 8px 12px}.project{display:block;width:100%;text-align:left}.project:hover,.project.selected{background:var(--hover)}
+.repo-tabs{display:flex;gap:8px;max-width:1376px;margin:auto;overflow-x:auto;flex-wrap:nowrap}.repo-tab{border:0;border-bottom:2px solid transparent;border-radius:0;color:var(--text);background:transparent;box-shadow:none;white-space:nowrap;padding:12px 16px;font-weight:400}.repo-tab:hover{background:var(--hover)}.repo-tab[aria-selected=true]{border-bottom-color:#f78166;font-weight:600}.tab-count{border-radius:20px;background:var(--hover);padding:0 6px;margin-left:6px;font-size:12px}
+main{margin-top:24px;max-width:1344px}.grid{grid-template-columns:minmax(0,1fr) 280px;gap:32px}.repo-sidebar{border:0;border-radius:0;box-shadow:none;background:transparent!important;padding:0!important;position:static!important}.repo-sidebar h2{font-size:16px;padding:0;margin:0 0 12px}.repo-sidebar h2::before{display:none}.repo-sidebar h3{border-top:1px solid var(--border);padding-top:20px;margin-top:20px;font-size:14px}.repo-sidebar p{font-size:13px}.repo-sidebar code{font-size:12px;overflow-wrap:anywhere}.sidebar-meta{color:var(--muted);font-size:12px;display:block;margin-top:12px}
+#project,#review{padding:0;overflow:hidden}#project>h2,#review>h2{background:var(--subtle);border-bottom:1px solid var(--border);padding:14px 20px;margin:0 0 16px;font-size:14px;color:var(--text)}#project>p,#project>.state,#review>p,#review>button{margin-left:20px;margin-right:20px}#project>form{margin:16px 20px 20px}#review>.metrics,#review>h3,#review>.case,#review>details,#review>nav{margin-left:20px;margin-right:20px}#review>nav{padding-bottom:20px}#project>form h3{font-size:16px}.overview-readme{border:1px solid var(--border);border-radius:6px;margin-top:24px}.overview-readme h3{background:var(--subtle);padding:12px 20px;margin:0;border-bottom:1px solid var(--border);font-size:13px}.overview-readme div{padding:20px 28px}.overview-readme h2{font-size:24px;padding-bottom:12px;border-bottom:1px solid var(--border)}.overview-readme p{color:var(--muted)}.overview-readme ol{padding-left:20px;line-height:2}
+.welcome-icon,.welcome-tag{background:var(--bg)}button.secondary:hover,header .button:hover{background:var(--hover)}textarea:focus,input[type=text]:focus{background:var(--bg)}button.danger{color:var(--danger)}.error{background:var(--danger-bg);color:var(--danger-text);border-color:var(--danger)}.notice{background:var(--info-bg);color:var(--info-text);border-color:var(--accent)}.state[data-state=active],.state[data-state=approved]{background:var(--success-bg);color:var(--success-text);border-color:var(--green)}.state[data-state=needs_changes],.state[data-state=needs_sources],.state[data-state=needs_environment]{background:var(--warning-bg);color:var(--warning-text);border-color:var(--warning-text)}.state[data-state=failed],.state[data-state=execution_failed],.state[data-state=rejected]{background:var(--danger-bg);color:var(--danger-text);border-color:var(--danger)}.state[data-state=designing],.state[data-state=queued],.state[data-state=ready_for_review]{background:var(--info-bg);color:var(--info-text);border-color:var(--accent)}
+@media(max-width:900px){.grid{grid-template-columns:minmax(0,1fr) 220px;gap:20px}.repo-banner{padding-left:20px;padding-right:20px}}
+@media(max-width:700px){header{flex-direction:row;flex-wrap:wrap;gap:12px;padding:12px}header nav{margin-left:auto}.brand h1 .muted{display:none}.repo-banner{padding:4px 12px 0}.repo-title-row{flex-wrap:wrap}.repo-title-row h2{font-size:16px;flex-wrap:wrap}.repo-tabs{gap:0}.repo-tab{padding:10px 12px;font-size:12px}.grid{grid-template-columns:1fr}.repo-sidebar{border-top:1px solid var(--border);padding-top:20px!important}#repository-menu{width:min(320px,calc(100vw - 24px));left:0;right:auto}#projects{display:block}.project{min-width:0}.overview-readme div{padding:16px}.overview-readme h2{font-size:20px}.repo-tabs button{flex-grow:0}}
+@media(max-width:500px){header nav{width:100%;justify-content:flex-start}.repo-title-row h2{width:100%;overflow-wrap:anywhere}.repo-title-row{gap:12px}.repo-tab{padding:10px 8px}.repo-switch{max-width:100%}#project form nav button{white-space:normal;text-align:center}}
+.source-browser{margin-top:12px;border:1px solid var(--border);border-radius:6px;padding:12px;background:var(--subtle)}.source-browser input[type=search]{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font:inherit}.source-browser input[type=search]:focus{outline:2px solid var(--accent);outline-offset:-1px}.source-results{max-height:280px;overflow:auto}.source-row{display:flex;align-items:center;gap:8px;padding:8px;margin:0;border-radius:4px;font-size:13px;font-weight:400;cursor:pointer;overflow-wrap:anywhere}.source-row:hover{background:var(--hover)}.source-icon{color:var(--muted)}.source-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.source-chip{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:6px;background:var(--subtle);padding:3px 8px;font-size:12px;max-width:100%;overflow-wrap:anywhere}.source-chip button{padding:0 4px;border:0;box-shadow:none;font-size:16px}.source-picker>p{font-size:12px}.source-picker>p:last-child{margin-top:12px}
+.generation-progress{border:1px solid var(--border);border-radius:6px;background:var(--subtle);padding:16px;margin:20px 0 0}.progress-heading{display:flex;align-items:center;gap:12px}.progress-heading strong{font-size:14px}.progress-caption{color:var(--muted);font-size:12px;margin:4px 0 0}.spinner{display:inline-block;flex-shrink:0;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .85s linear infinite}.progress-symbol{font-size:20px;color:var(--accent);line-height:20px}.progress-steps{display:flex;gap:8px;margin-top:16px}.progress-step{flex:1;min-width:0;border-top:2px solid var(--border);padding-top:8px;color:var(--muted);font-size:11px}.progress-step.current{border-color:var(--accent);color:var(--accent);font-weight:600}.progress-step.done{border-color:var(--green);color:var(--success-text)}.button-spinner{width:14px;height:14px;border-color:#ffffff40;border-top-color:currentColor;margin-right:8px;vertical-align:-2px}button[type=submit]:disabled{background:var(--green);color:white;opacity:.75}.generation-progress[data-state=failed]{border-color:var(--danger)}.generation-progress[data-state=needs_changes]{border-color:var(--warning-text)}@keyframes spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.spinner{animation:none}}
+</style>
+
+<style>
+.suite-toolbar{margin:16px 20px}.suite-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.suite-actions select{width:auto;max-width:240px;margin:0}.manual-case-editor{margin:16px 20px}.manual-case-editor form>label{display:block;font-size:12px;font-weight:600;margin:12px 0 6px}.manual-case-editor form>input,.manual-case-editor form>textarea{width:100%}.manual-case-editor details textarea{font-family:ui-monospace,Consolas,monospace;font-size:12px}.case-controls{flex-wrap:wrap}
+#review>.review-summary,#review>.review-execution-warning,#review>.review-technical{margin:16px 20px}.review-summary{padding:12px 0}.review-summary p{margin:6px 0 0}.review-execution-warning{background:var(--warning-bg);color:var(--warning-text);border:1px solid var(--warning-text);border-radius:6px;padding:12px 16px;font-size:13px}.review-execution-warning p{margin:6px 0 0}.case-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.case-heading .state{white-space:nowrap;margin:0}.test-step{border:1px solid var(--border);border-radius:6px;background:var(--subtle);padding:16px;margin:12px 0}.test-step h4{margin:0 0 12px;font-size:13px}.test-step p,.test-step li{font-size:13px;overflow-wrap:anywhere}.test-step ul{padding-left:20px}.test-step strong{font-size:12px}.assertion-failures{color:var(--danger)}.evidence-path{font-family:ui-monospace,Consolas,monospace;color:var(--muted);font-size:12px;margin-bottom:4px}.review-technical{border-top:1px solid var(--border);padding-top:16px}.review-technical>summary{color:var(--muted)}
+</style>
+</head>
+<body>
+<header><div class="brand"><span class="brand-mark" aria-hidden="true">QC</span><span class="brand-divider" aria-hidden="true"></span><div><h1>Agent-QC <span class="muted">/ Thiết kế test</span></h1><p>Thiết kế test và kiểm chứng mỗi pull request</p></div></div><nav aria-label="Tài khoản"><span id="identity"></span><a class="button" id="login" href="/auth/github/login">Đăng nhập GitHub</a><a class="button hidden" id="install">Cài App cho repository</a><button class="secondary hidden" id="logout">Đăng xuất</button></nav></header>
+<div class="repo-banner"><div class="repo-title-row"><h2><span class="repo-icon" aria-hidden="true">▣</span><span id="repo-owner">Agent-QC</span><span class="muted">/</span><strong id="repo-name">Repositories</strong><span class="repo-badge">GitHub App</span></h2><div class="repo-switch"><button type="button" id="switch-repository" aria-expanded="false" aria-controls="repository-menu">Chọn repository ▾</button><div id="repository-menu" class="panel hidden"><h2>Repositories</h2><div id="projects"></div></div></div></div><nav class="repo-tabs" role="tablist" aria-label="Repository"><button class="repo-tab" id="tab-overview" data-tab="overview" role="tab" aria-selected="true" aria-controls="project">▣ Tổng quan</button><button class="repo-tab" id="tab-baselines" data-tab="baselines" role="tab" aria-selected="false" aria-controls="review">✓ Bộ kiểm thử <span class="tab-count" id="baseline-count">0</span></button><button class="repo-tab" id="tab-settings" data-tab="settings" role="tab" aria-selected="false" aria-controls="project">⚙ Cấu hình</button></nav></div>
+<main><div id="feedback" class="hidden" role="status" aria-live="polite"></div><div id="welcome" class="panel"><span class="welcome-icon" aria-hidden="true">✓</span><div class="welcome-copy"><h2>Kết nối repository. Review baseline. Kiểm chứng mỗi PR.</h2><p>Agent đọc codebase và tài liệu, sinh bộ test để bạn review expected results trước khi áp dụng.</p><p class="muted">Nguồn được chọn sẽ được gửi tới LLM do quản trị App cấu hình.</p></div><span class="welcome-tag">GitHub App</span></div>
+<div id="workspace" class="grid hidden"><section><div id="project" class="panel"><p>Chọn repository để xem tiến độ và bộ test.</p></div><div id="overview-readme" class="overview-readme"><h3>▤ README · Quy trình kiểm thử</h3><div><h2>Test design cho repository</h2><p>Từ codebase và tài liệu đến bộ test được duyệt cho mỗi pull request.</p><ol><li>Phân tích codebase và tài liệu nguồn.</li><li>Sinh test cases, assertions và bằng chứng.</li><li>Review baseline trước khi áp dụng.</li><li>QC-agent dùng baseline đã duyệt để kiểm tra PR.</li></ol></div></div><div id="review" class="panel hidden"></div></section><aside class="panel repo-sidebar" id="repository-about"><h2>Thông tin dự án</h2><p>Chọn repository để xem trạng thái test design và baseline.</p></aside></div>
+</main>
+<footer class="page-footer"><span class="footer-brand">Agent-QC · Thiết kế test</span><span>Codebase → Test design → Review → PR testing</span></footer>
+<script>
+let identity=null,selected=null,projectData=null,dirty=false;
+const generationRequests=new Set(),acceptedGenerationJobs=new Map();
+const baselineViews=new Map(),pendingCaseReviews=new Map();
+let reviewNavigationRevision=0;
+function updateReviewButtons(){for(const form of $('review').querySelectorAll('.case-review form'))for(const control of form.querySelectorAll('button,input,select,textarea'))control.disabled=form.dataset.unavailable==='true'||generationBusy();for(const control of $('review').querySelectorAll('.suite-mutation'))control.disabled=control.dataset.unavailable==='true'||generationBusy()}
+function reviewJobProgress(data){
+  $('review').querySelector('.case-job-progress')?.remove();
+  const job=data.job,pending=pendingCaseReviews.get(selected);if(!pending||!job||job.job_id!==pending.job_id)return;
+  const panel=node('div',undefined,'review-decision case-job-progress'),busy=['queued','running'].includes(job.status);
+  panel.setAttribute('role','status');panel.setAttribute('aria-live','polite');
+  if(busy)panel.append(node('span',undefined,'spinner'));
+  panel.append(node('strong',(busy?'Đang cập nhật bộ test':job.status==='failed'?'Cập nhật chưa hoàn tất':'Đã tạo draft sửa đổi')+(pending.case_id==='suite'?'':' · '+pending.case_id)),node('p',busy?'Bạn đang xem baseline gốc. Draft cập nhật sẽ tự mở khi hoàn tất; bộ test đang áp dụng giữ nguyên.':job.error_message||data.project.message,'muted'));
+  $('review').prepend(panel);updateReviewButtons();
+}
+function generationBusy(projectId=selected){
+  if(generationRequests.has(projectId)||acceptedGenerationJobs.has(projectId))return true;
+  if(projectData?.project.project_id!==projectId)return false;
+  return projectData.job?['queued','running'].includes(projectData.job.status):['queued','discovering','designing','validating'].includes(projectData.project.state);
+}
+function updateGenerationButtons(){
+  const form=$('project').querySelector('form');if(!form)return;
+  const uploading=Boolean(form.querySelector('.upload-picker')?.uploading),busy=generationBusy();
+  form.setAttribute('aria-busy',String(busy));
+  for(const button of form.querySelectorAll('nav button')){button.disabled=busy||uploading;
+    if(button.type==='submit'){button.replaceChildren();if(busy){const spinner=node('span',undefined,'spinner button-spinner');spinner.setAttribute('aria-hidden','true');button.append(spinner)}button.append(document.createTextNode(generationRequests.has(selected)?'Đang gửi…':busy?'Đang sinh test…':'Lưu và sinh bộ mới'))}
+  }
+  updateGenerationProgress(form,busy);
+}
+function updateGenerationProgress(form,busy){
+  let progress=form.querySelector('.generation-progress');
+  const data=projectData?.project.project_id===selected?projectData:null,state=data?.project.state;
+  if(!busy&&!data?.job){if(progress)progress.remove();return}
+  if(!progress){progress=node('div',undefined,'generation-progress');progress.setAttribute('role','status');progress.setAttribute('aria-live','polite');form.insertBefore(progress,form.querySelector('nav'))}
+  const stages={sources:['Đọc nguồn dự án',0],analysis:['Phân tích codebase và tài liệu',1],planning:['Lập kế hoạch kiểm thử',2],oracle:['Xác định expected results',2],repair:['Kiểm tra và sửa định nghĩa test',2],coverage:['Đánh giá độ bao phủ test',3],critic:['Đánh giá chất lượng bộ test',3],workflow:['Hoàn tất bộ test',3]};
+  let title='Đang xử lý bộ test',step=1;
+  const stage=(data?.progress?.stage||'').replace('.correction','');
+  if(stages[stage])[title,step]=stages[stage];
+  if(stage.startsWith('generation.')){title='Sinh test cases và assertions';step=2}
+  if(stage==='flow.survey'){title='Khảo sát và chia modules';step=0}
+  if(stage==='flow.investigate'){title='Đọc và phân tích luồng';step=1}
+  if(stage==='flow.write'){title='Sinh hoặc đề xuất sửa test cases';step=2}
+  if(stage==='flow.review'){title='Review cases và nhánh còn thiếu';step=3}
+  if(stage==='automation.prepare'){title='Chuẩn bị executable tests cho QC';step=2}
+  if(state==='queued'){title='Đang chờ bắt đầu';step=0}
+  if(state==='discovering'){title='Đọc repository và phát hiện môi trường';step=0}
+  if(state==='validating'){title='Chạy thử và kiểm chứng bộ test';step=3}
+  if(generationRequests.has(selected)){title='Đang gửi yêu cầu sinh test';step=0}
+  const failed=data?.job?.status==='failed',needsChanges=state==='needs_changes';
+  if(!busy){title=data?.job?.status==='partial'?'Sinh test chưa hoàn tất':failed?'Sinh test gặp lỗi':needsChanges?'Đã tạo draft · Cần review':state==='needs_environment'?'Đã tạo draft · Chưa kiểm chứng môi trường':state==='ready_for_review'?'Bộ test đã sẵn sàng review':labels[state]||'Đã hoàn tất xử lý'}
+  progress.dataset.state=failed?'failed':state||'queued';progress.replaceChildren();
+  const heading=node('div',undefined,'progress-heading'),symbol=node('span',busy?undefined:failed?'!':needsChanges?'!':'✓',busy?'spinner':'progress-symbol');symbol.setAttribute('aria-hidden','true');
+  const copy=node('div');copy.append(node('strong',title),node('p',busy?'Tiến trình được cập nhật tự động. Bạn có thể tiếp tục ở tab khác.':data?.project.message||'','progress-caption'));heading.append(symbol,copy);progress.append(heading);
+  if(data?.progress?.module_title){const p=data.progress;copy.append(node('p',p.module_title+' · '+p.modules_with_cases+'/'+p.modules_total+' modules có cases · LLM calls '+p.calls_used+'/'+p.calls_limit+' · còn '+p.calls_remaining,'progress-caption'))}
+  if(data?.progress?.automation_total!==undefined){const p=data.progress;copy.append(node('p',p.automation_prepared+'/'+p.automation_total+' cases đã chuẩn bị'+(p.calls_limit?' · LLM calls '+p.calls_used+'/'+p.calls_limit+' · còn '+p.calls_remaining:''),'progress-caption'))}
+  if(busy){const steps=node('div',undefined,'progress-steps');['Đọc nguồn','Phân tích','Sinh test','Kiểm chứng & review'].forEach((text,index)=>steps.append(node('div',text,'progress-step'+(index===step?' current':index<step?' done':''))));progress.append(steps)}
+}
+const $=id=>document.getElementById(id);
+const labels={not_started:'Chưa có bộ test',queued:'Đang chờ',discovering:'Đọc nguồn',designing:'Sinh test',validating:'Kiểm chứng',ready_for_review:'Chờ review',active:'Đã áp dụng',needs_sources:'Thiếu yêu cầu',needs_environment:'Cần môi trường',needs_changes:'Cần chỉnh sửa',needs_operator_setup:'Cần cấu hình dịch vụ',execution_failed:'Kiểm chứng chưa đạt',failed:'Job gặp lỗi',disabled:'Đã gỡ quyền'};
+function node(tag,text,cls){let element=document.createElement(tag);if(text!==undefined)element.textContent=text;if(cls)element.className=cls;return element}
+function decorateStates(){document.querySelectorAll('.state').forEach(element=>{let state=Object.keys(labels).find(key=>labels[key]===element.textContent);if(state)element.dataset.state=state});let heading=$('project').querySelector('h2');if(heading)heading.classList.add('repo-heading')}
+new MutationObserver(decorateStates).observe($('workspace'),{childList:true,subtree:true});
+function feedback(text,error=false){$('feedback').className=error?'error':'notice';$('feedback').textContent=text}
+async function api(path,options={}){options.headers={...(options.headers||{})};if(options.method&&options.method!=='GET'){options.headers['X-CSRF-Token']=identity.csrf;options.headers['Content-Type']='application/json'}let response=await fetch(path,options);let data=await response.json().catch(()=>({detail:'Không đọc được phản hồi dịch vụ.'}));if(response.status===401)throw Error('Phi\u00ean \u0111\u0103ng nh\u1eadp kh\u00f4ng c\u00f2n h\u1ee3p l\u1ec7. B\u1ea5m \u0110\u0103ng nh\u1eadp GitHub r\u1ed3i th\u1eed l\u1ea1i; thay \u0111\u1ed5i ch\u01b0a \u0111\u01b0\u1ee3c l\u01b0u.');if(!response.ok)throw Error(data.detail||'Yêu cầu chưa thực hiện được.');return data}
+function detail(title,value){let element=node('details');element.append(node('summary',title),node('pre',JSON.stringify(value,null,2)));return element}
+function reviewMessages(container,data){
+  const artifacts=data.artifacts,gate=artifacts['review_gate.json'],blockers=[...new Set(gate.design_blockers||[])];
+  if(blockers.length){
+    const box=node('div',undefined,'review-blockers');box.append(node('strong','Chưa thể duyệt bộ test · '+blockers.length+' mục cần xử lý'));
+    const validation=artifacts['validation_report.json']?.issues||[],critic=(artifacts['critic_review.json']?.issues||[]).filter(issue=>issue.severity==='blocker');
+    const used=new Set(validation.map(issue=>issue.message));critic.forEach(issue=>used.add(issue.message));
+    const groups=[['Test không hợp lệ',[...new Set(validation.map(issue=>issue.case_id+' · '+readableMessage(issue.message)))]],
+      ['Độ bao phủ chưa đạt',Object.entries(artifacts['coverage.json'].metrics).filter(([,metric])=>!metric.satisfied).map(([name,metric])=>(reviewNames[name]||name)+': '+metric.designed_covered+'/'+metric.total+' · Còn thiếu: '+metric.missing.join(', '))],
+      ['Đánh giá chất lượng',critic.map(issue=>readableMessage(issue.message))],
+      ['Kết quả mong đợi / câu hỏi cần xác nhận',blockers.filter(message=>!used.has(message)&&message!=='Designed coverage thresholds not met'&&message!=='Test Critic requested changes')]];
+    for(const [title,messages]of groups){if(!messages.length)continue;const group=node('details'),list=node('ul');group.append(node('summary',title+' ('+messages.length+')'));messages.forEach(message=>list.append(node('li',readableMessage(message))));group.append(list);box.append(group)}
+    container.append(box);
+  }
+  const deferred=gate.deferred_requirements||artifacts['coverage.json'].deferred_requirements||[];
+  if(deferred.length){const section=node('details',undefined,'review-limits');section.append(node('summary','Phần chưa được kiểm thử · '+deferred.length+' yêu cầu chưa có công cụ chạy phù hợp'));const list=node('ul');for(const requirement of deferred)list.append(node('li',requirement.id+' · '+(reviewNames[requirement.execution_scope]||'Kiểm thử khác')+' — '+({browser:'Cần công cụ kiểm thử nội dung hoặc thao tác trên trình duyệt.',unit:'Cần công cụ gọi trực tiếp hàm để kiểm tra kết quả hoặc ngoại lệ.',dependency:'Cần công cụ kiểm tra thư viện và cấu hình phụ thuộc.',load:'Cần công cụ tạo tải; cấu hình benchmark chưa phải cam kết hiệu năng.'}[requirement.execution_scope]||readableMessage(requirement.scope_reason))));section.append(list);container.append(section)}
+  const notes=(gate.open_questions||[]).filter(question=>!blockers.includes(question));
+  if(notes.length){const section=node('details',undefined,'review-limits');section.append(node('summary','Ghi chú và câu hỏi tham khảo ('+notes.length+')'));const list=node('ul');notes.forEach(note=>list.append(node('li',readableMessage(note))));section.append(list);container.append(section)}
+  if(artifacts['coverage.json'].scope)container.append(node('p','Độ bao phủ tính theo các runner đang hỗ trợ. '+deferred.length+' yêu cầu nằm ngoài phạm vi thực thi hiện tại.','muted scope-caption'));
+}
+function createSourcePicker(project){
+  const picker=node('div',undefined,'source-picker'),chosen=new Set(project.source_paths),chips=node('div',undefined,'source-chips');
+  picker.selectedPaths=()=>[...chosen];
+  const open=node('button','Tìm và chọn file / folder','secondary');open.type='button';open.setAttribute('aria-expanded','false');
+  const browser=node('div',undefined,'source-browser hidden'),search=node('input');search.type='search';search.placeholder='Tìm theo tên hoặc đường dẫn…';search.setAttribute('aria-label','Tìm tài liệu trong repository');
+  const status=node('p','', 'muted'),list=node('div',undefined,'source-results');status.setAttribute('role','status');
+  browser.append(search,status,list);picker.append(node('p','Chọn tài liệu từ default branch của repository. Chọn folder để dùng các tài liệu bên trong.','muted'),open,chips,browser,node('p','Hỗ trợ Markdown, TXT, RST, JSON, YAML. Có thể kết hợp tài liệu repo với file upload bên dưới.','muted'));
+  let entries=null,loading=false;
+  function renderChips(){chips.replaceChildren();for(const path of chosen){let chip=node('span',undefined,'source-chip');chip.append(node('span',path));let remove=node('button','×','secondary');remove.type='button';remove.setAttribute('aria-label','Bỏ chọn '+path);remove.onclick=()=>{chosen.delete(path);dirty=true;renderChips();renderResults()};chip.append(remove);chips.append(chip)}}
+  function renderResults(){
+    if(!entries)return;list.replaceChildren();let query=search.value.trim().toLocaleLowerCase(),filtered=entries.filter(entry=>entry.path.toLocaleLowerCase().includes(query));
+    status.textContent=filtered.length?'Có '+filtered.length+' kết quả'+(filtered.length>200?' · Hiển thị 200 kết quả đầu, nhập thêm để thu hẹp.':''):'Không tìm thấy tài liệu phù hợp.';
+    for(const entry of filtered.slice(0,200)){let row=node('label',undefined,'source-row'),checkbox=node('input');checkbox.type='checkbox';checkbox.checked=chosen.has(entry.path);checkbox.onchange=()=>{if(checkbox.checked){if(chosen.size>=100){checkbox.checked=false;feedback('Chọn tối đa 100 file / folder.',true);return}chosen.add(entry.path)}else chosen.delete(entry.path);dirty=true;renderChips()};row.append(checkbox,node('span',entry.type==='folder'?'▣':'▤','source-icon'),node('span',entry.path+(entry.type==='folder'?'/':'')));list.append(row)}
+  }
+  search.oninput=renderResults;
+  open.onclick=async()=>{
+    const visible=browser.classList.toggle('hidden')===false;open.setAttribute('aria-expanded',String(visible));if(!visible)return;search.focus();if(entries||loading)return;
+    loading=true;status.textContent='Đang lấy danh sách tài liệu…';
+    try{const result=await api('/api/v1/projects/'+project.project_id+'/document-paths');entries=result.entries;if(picker.isConnected)renderResults()}
+    catch(error){status.textContent=error.message;browser.classList.add('hidden');open.setAttribute('aria-expanded','false');feedback(error.message,true)}finally{loading=false}
+  };
+  renderChips();return picker;
+}
+function createUploadPicker(data){
+  const picker=node('div',undefined,'upload-picker'),chosen=new Set(data.project.uploaded_document_ids||[]),documents=[...(data.documents||[])];
+  picker.selectedIds=()=>[...chosen];picker.uploading=false;
+  const title=node('h3','Hoặc upload tài liệu'),input=node('input');input.type='file';input.multiple=true;input.accept='.md,.txt,.rst,.json,.yaml,.yml';input.id='upload-documents';input.setAttribute('aria-label','Upload tài liệu từ máy tính');
+  const hint=node('p','Tài liệu được lưu riêng cho repository này và chỉ gửi tới LLM khi sinh test. Hỗ trợ văn bản UTF-8: MD, TXT, RST, JSON, YAML.','muted');
+  const status=node('p','', 'muted'),list=node('div');status.setAttribute('role','status');picker.append(title,hint,input,status,list);
+  function render(){list.replaceChildren();for(const document of documents){const row=node('label',undefined,'source-row'),checkbox=node('input');checkbox.type='checkbox';checkbox.checked=chosen.has(document.id);checkbox.onchange=()=>{checkbox.checked?chosen.add(document.id):chosen.delete(document.id);dirty=true};row.append(checkbox,node('span',document.name),node('span',Math.ceil(document.bytes/1024)+' KB','muted'));list.append(row)}}
+  input.onchange=async()=>{
+    const files=[...input.files];if(!files.length)return;
+    picker.uploading=true;dirty=true;input.disabled=true;const form=picker.closest('form'),save=form.querySelector('button[type=submit]'),regenerate=form.querySelector('nav button[type=button]');save.disabled=true;if(regenerate)regenerate.disabled=true;
+    let count=0;
+    try{for(const file of files){status.textContent='Đang upload '+file.name+'…';if(file.size>(data.upload_max_bytes||160000))throw Error('File '+file.name+' vượt ngân sách đầu vào.');
+      let content;try{content=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer())}catch{throw Error('File '+file.name+' cần là văn bản UTF-8.')}
+      const document=await api('/api/v1/projects/'+data.project.project_id+'/documents',{method:'POST',body:JSON.stringify({name:file.name,content})});
+      if(!documents.some(item=>item.id===document.id))documents.push(document);chosen.add(document.id);count++;render();
+    }status.textContent='Đã upload '+count+' file. Bấm “Lưu và sinh bộ mới” để sử dụng.'}
+    catch(error){status.textContent=(count?'Đã upload '+count+' file. ':'')+error.message;feedback(error.message,true)}
+    finally{picker.uploading=false;input.disabled=false;input.value='';updateGenerationButtons()}
+  };
+  render();return picker;
+}
+async function loadProjects(){let data=await api('/api/v1/projects');$('projects').replaceChildren();if(!data.projects.length)$('projects').append(node('p','Chưa có repository được đồng bộ mà bạn có quyền quản lý.','muted'));for(let project of data.projects){let button=node('button',undefined,'project'+(selected===project.project_id?' selected':''));button.append(node('strong',project.repository.full_name),node('div',labels[project.state]||project.state,'state'));button.onclick=()=>select(project.project_id);$('projects').append(button)}}
+async function select(id){selected=id;dirty=false;await loadProject(true);await loadProjects()}
+async function loadProject(force=false){if(!selected)return;const id=selected;let data=await api('/api/v1/projects/'+id);if(selected!==id)return;let changed=!projectData||projectData.project.project_id!==id||projectData.project.current_job_id!==data.project.current_job_id||projectData.project.state!==data.project.state||projectData.job?.status!==data.job?.status;projectData=data;
+  if(acceptedGenerationJobs.has(id)&&data.job?.job_id===acceptedGenerationJobs.get(id))acceptedGenerationJobs.delete(id);
+  const viewed=baselineViews.get(id),job=data.job;
+  if(viewed&&job?.review_baseline===viewed&&['queued','running','failed'].includes(job.status)&&!pendingCaseReviews.has(id))pendingCaseReviews.set(id,{job_id:job.job_id,source_version:viewed,case_id:job.review_request?.case_id});
+  if(force||(!dirty&&changed)){const previous=viewed?[...$('review').childNodes]:null;renderProject(data);if(previous?.length){$('review').replaceChildren(...previous);setTab(activeTab)}}
+  const pending=pendingCaseReviews.get(id);
+  if(pending&&job?.job_id===pending.job_id&&job.status==='completed'&&job.baseline_version){pendingCaseReviews.delete(id);await showBaseline(job.baseline_version);const search=$('review').querySelector('.review-toolbar input');if(search&&selected===id&&pending.case_id!=='suite'&&job.review_request?.action!=='delete_case'){search.value=pending.case_id;search.dispatchEvent(new Event('input'));const row=[...$('review').querySelectorAll('.case-summary-row')].find(item=>item.firstElementChild.textContent===pending.case_id);row?.querySelector('.case-controls button')?.click()}}
+  else if(pending&&job?.job_id===pending.job_id&&job.status==='failed'&&changed){await showBaseline(viewed);reviewJobProgress(data)}
+  else reviewJobProgress(data);
+  updateGenerationButtons();updateReviewButtons();
+}
+function renderProject(data){
+  const project=data.project,container=$('project');container.replaceChildren(node('h2',project.repository.full_name),node('span',labels[project.state]||project.state,'state'),node('p',project.message));
+  if(project.active_baseline)container.append(node('p','Baseline đang áp dụng: '+project.active_baseline,'muted'));
+  if(data.job?.error)container.append(node('p',data.job.error_message||'Job diagnostic: '+data.job.error,'error'));
+  const form=node('form');form.append(node('h3','Tài liệu nguồn'),createSourcePicker(project));const actions=node('nav'),save=node('button','Lưu và sinh bộ mới'),regenerate=node('button','Sinh bộ mới từ default branch','secondary');save.type='submit';regenerate.type='button';regenerate.onclick=()=>act('/api/v1/projects/'+selected+'/regenerate',{});actions.append(save,regenerate);form.append(actions);container.append(form);
+  const review=$('review');review.replaceChildren(node('h2','Danh sách baseline'));review.classList.remove('hidden');
+  if(!data.baselines.length){review.append(node('p','Baseline sẽ xuất hiện sau khi TDA hoàn tất.','muted'));return}
+  const wrap=node('div',undefined,'case-table-wrap'),table=node('table',undefined,'baseline-index'),head=node('thead'),header=node('tr'),body=node('tbody');
+  for(const label of ['Baseline','Trạng thái','Blocker','Action'])header.append(node('th',label));head.append(header);table.append(head,body);
+  data.baselines.forEach((baseline,index)=>{const row=node('tr'),version=node('td');version.append(node('strong',baseline.version));if(index===0)version.append(node('p','Mới nhất','muted'));const status=baseline.version===project.active_baseline?'Đang áp dụng':baseline.state==='draft'?(index===0?'Draft mới nhất':'Draft cũ'):baseline.state==='approved'?'Approved':'Rejected';const action=node('td'),open=node('button','Mở review','secondary');open.onclick=()=>showBaseline(baseline.version);action.append(open);row.append(version,node('td',status),node('td',String(baseline.blockers?.length||0)),action);body.append(row)});wrap.append(table);review.append(wrap);
+}
+async function act(path,body){const generating=/\/(setup|regenerate|case-review)$/.test(path),id=selected;
+  if(generating){if(generationBusy(id)||$('project').querySelector('.upload-picker')?.uploading)return;generationRequests.add(id);updateGenerationButtons()}
+  try{const result=await api(path,{method:'POST',body:JSON.stringify(body)});if(generating&&result.job_id)acceptedGenerationJobs.set(id,result.job_id);
+    if(path.endsWith('/case-review')&&result.job_id){pendingCaseReviews.set(id,{job_id:result.job_id,source_version:baselineViews.get(id),case_id:body.case_id});activeTab='baselines'}
+    if(selected===id){dirty=false;if(generating)$('feedback').className='hidden';else feedback('Đã tiếp nhận. Tiến độ sẽ được cập nhật tự động.');await loadProject(true);await loadProjects()}
+  }catch(error){if(selected===id)feedback(error.message,true)}finally{if(generating)generationRequests.delete(id);updateGenerationButtons();updateReviewButtons()}
+}
+const reviewNames={requirement:'Yêu cầu',feature:'Chức năng',risk:'Rủi ro',api:'API',functional:'Chức năng',integration:'Tích hợp',security:'Bảo mật',performance:'Hiệu năng',ai_evaluation:'Đánh giá AI',http:'Kiểm thử HTTP',browser:'Kiểm thử trình duyệt',unit:'Kiểm thử hàm',dependency:'Kiểm tra phụ thuộc',load:'Kiểm thử tải',pass:'Đạt',defect:'Chưa đạt',blocked:'Bị chặn',environment_error:'Chưa chạy được',draft:'Bản nháp',approved:'Đã duyệt',rejected:'Đã từ chối'};
+function readableMessage(message){
+  const text=String(message||'');
+  const translations={'Designed coverage thresholds not met':'Độ bao phủ chưa đạt mức yêu cầu.','Test Critic requested changes':'Bộ đánh giá chất lượng yêu cầu chỉnh sửa.','Performance cases need a sourced latency SLO':'Test hiệu năng thiếu ngưỡng thời gian phản hồi có căn cứ từ tài liệu.','Every performance step requires a latency SLO':'Mỗi bước kiểm thử hiệu năng cần có ngưỡng thời gian phản hồi.','expected behavior needs normative PRD/SRS/OpenAPI evidence':'Kỳ vọng được ghi là đặc tả nhưng chưa có bằng chứng từ tài liệu đặc tả.','Oracle must cover every step exactly once':'Mỗi bước gửi yêu cầu cần có đúng một nhóm điều kiện kiểm tra.','evidence does not match a supplied source excerpt':'Trích dẫn không khớp với nguồn đã cung cấp.','No executable HTTP test cases were generated':'Chưa tạo được test HTTP có thể thực thi.'};
+  if(translations[text])return translations[text];
+  if(text.startsWith('Scenario has no valid oracle-backed test:'))return 'Kịch bản '+text.split(':').slice(1).join(':').trim()+' chưa có test hợp lệ với kết quả mong đợi.';
+  if(text.startsWith('Missing evidenced oracle for '))return 'Test '+text.replace('Missing evidenced oracle for ','')+' chưa có kết quả mong đợi đủ bằng chứng.';
+  if(/^Scenario .* has no generated case$/.test(text))return 'Kịch bản '+text.split(' ')[1]+' chưa sinh được test có thể thực thi.';
+  if(text.includes('k6')&&/threshold|SLO|performance guarantee|load-test/i.test(text))return 'Các ngưỡng trong performance/k6.js chưa có tài liệu xác nhận là tiêu chí hiệu năng bắt buộc. Cần phân biệt cấu hình benchmark với cam kết của sản phẩm.';
+  if(/invalid or missing query parameters/i.test(text))return 'Chưa có yêu cầu riêng cho nội dung lỗi khi API thiếu tham số hoặc tham số sai kiểu. Cần đối chiếu nguồn trước khi thêm điều kiện kiểm tra phản hồi lỗi.';
+  if(text.includes('/api/divide')&&/b\s*=\s*0/.test(text))return 'Chưa xác định được mã HTTP và nội dung phản hồi khi gọi /api/divide với b = 0. Code có ném ValueError, nhưng chưa có căn cứ cho cách API trả lỗi.';
+  if(text.includes('Không có câu hỏi chặn'))return 'Bộ phân tích nói không có câu hỏi chặn nhưng vẫn đưa câu này vào danh sách chặn. Cần kiểm tra lại phân loại của bộ sinh test.';
+  if(/[À-ỹĐđ]/u.test(text))return text;
+  return 'Thông báo cần đối chiếu lại với nguồn và dữ liệu kỹ thuật gốc.';
+}
+function assertionDescription(assertion){
+  const value=assertion.expected_json,where=assertion.pointer?' tại '+assertion.pointer:'';
+  if(assertion.kind==='status')return 'Mã HTTP phải bằng '+value;
+  if(assertion.kind==='latency_ms')return 'Thời gian phản hồi phải trong ngưỡng '+value+' ms';
+  if(assertion.kind==='json_equals')return 'Giá trị JSON'+where+' phải bằng '+value;
+  if(assertion.kind==='json_contains')return 'Nội dung JSON'+where+' phải chứa '+value;
+  const labels={text_equals:'Nội dung phản hồi phải bằng ',text_contains:'Nội dung phản hồi phải chứa ',return_equals:'Hàm phải trả về ',raises:'Hàm phải ném ngoại lệ ',exception_message:'Thông báo ngoại lệ phải bằng ',dom_visible:'Phần tử phải hiển thị theo giá trị ',dom_text_equals:'Nội dung phần tử phải bằng ',dom_text_contains:'Nội dung phần tử phải chứa ',dom_value_equals:'Giá trị ô nhập phải bằng ',latency_p95_ms:'95% yêu cầu phải hoàn tất trong ngưỡng (ms) ',error_rate:'Tỷ lệ lỗi không vượt quá ',ai_score:'Điểm AI tối thiểu '};
+  if(labels[assertion.kind])return labels[assertion.kind]+value+where;
+  return 'Điều kiện kiểm tra: '+assertion.kind;
+}
+function readableCase(test,result,sources,issues=[],design={}){
+  const card=node('article',undefined,'case'),title=/[À-ỹĐđ]/u.test(test.title)?test.title:'Kiểm tra '+(test.unit?test.unit.module_path+' · '+test.unit.function:test.browser?'thao tác trình duyệt':test.steps.map(step=>step.method+' '+step.path).join(' → ')),heading=node('div',undefined,'case-heading');
+  const needsReview=design.blockers?.length>0;
+  const state=node('span',issues.length?'Định nghĩa test cần sửa':needsReview?'Có blocker':design.validated?'Hợp lệ':'Chờ kiểm tra','state');state.dataset.state=issues.length?'failed':needsReview?'needs_changes':design.validated?'approved':'queued';
+  heading.append(node('strong',test.id+' · '+title),state);card.append(heading,node('p',({functional:'Functional',integration:'Integration',security:'Security',performance:'Performance',ai_evaluation:'AI evaluation'})[test.kind]+' · Runner: '+(test.runner||'http')+' · Requirement: '+test.requirement_ids.join(', '),'muted'));
+  const executionLabels={pass:'Đạt',defect:'Phát hiện lỗi ứng dụng',blocked:'Bị chặn',environment_error:'Chưa chạy được',invalid:'Test không hợp lệ'};
+  card.append(node('p',result?'Chạy tham chiếu: '+(executionLabels[result.status]||'Chưa xác định'):design.hasReference?'Chạy tham chiếu: Chưa thực thi':'Thực thi: Chờ QC chạy trên PR','muted execution-label'));
+  card.append(node('p',test.oracle.steps.some(step=>step.assertions.some(assertion=>assertion.expectation_basis==='implementation'))?'Có kỳ vọng suy ra từ code hoặc test có sẵn. Cần xác nhận trước khi duyệt.':'Kỳ vọng được xác định từ tài liệu đặc tả.','muted'));
+  if(issues.length){const list=node('ul',undefined,'assertion-failures');for(const issue of issues)list.append(node('li',readableMessage(issue.message)));card.append(list)}
+  if(needsReview){const list=node('ul',undefined,'assertion-failures');for(const issue of design.blockers)list.append(node('li',readableMessage(issue.message)));card.append(list)}
+  const steps=node('details');steps.append(node('summary','Xem yêu cầu, kết quả mong đợi và kết quả chạy'));
+  if(test.load)steps.append(node('p','Tải: '+test.load.vus+' người dùng đồng thời · '+test.load.duration_seconds+' giây'));
+  if(test.grading)steps.append(node('p','Tiêu chí chấm AI:'),node('pre',test.grading.rubric));
+  const displaySteps=test.unit?[{method:'Gọi hàm',path:test.unit.function,query:[],body_json:test.unit.args_json+' · '+test.unit.kwargs_json}]:test.browser?test.browser.actions.map(action=>({method:({goto:'Mở trang',fill:'Nhập',click:'Bấm',select:'Chọn',check:'Đánh dấu',observe:'Quan sát'})[action.action],path:action.path||action.selector,query:[],body_json:action.value??null})):test.steps;
+  displaySteps.forEach((request,index)=>{
+    const section=node('div',undefined,'test-step');section.append(node('h4','Bước '+(index+1)+' · '+request.method+' '+request.path));
+    if(request.query.length)section.append(node('p','Tham số: '+request.query.map(item=>item.name+' = '+item.value).join(' · ')));
+    if(request.body_json!==null)section.append(node('p','Dữ liệu gửi lên:'),node('pre',request.body_json));
+    section.append(node('strong','Kết quả mong đợi'));const expected=node('ul');
+    for(const oracle of test.oracle.steps.filter(step=>step.step_index===index))for(const assertion of oracle.assertions)expected.append(node('li',assertionDescription(assertion)));
+    section.append(expected,node('strong','Kết quả chạy tham chiếu'));const actual=(result?.steps||[]).filter(step=>step.index===index);
+    if(!actual.length)section.append(node('p',result?'Chưa có kết quả tham chiếu cho bước này.':design.hasReference?'Bước này chưa được chạy tham chiếu.':'QC sẽ thực thi bước này khi có PR.','muted'));
+    for(const observed of actual){
+      if(observed.status_code!==undefined)section.append(node('p','HTTP '+observed.status_code+' · '+observed.latency_ms+' ms'));
+      if(observed.actual)section.append(node('pre',JSON.stringify(observed.actual,null,2)));
+      if(observed.p95_ms!==undefined)section.append(node('p','p95: '+observed.p95_ms+' ms'));
+      if(observed.grade)section.append(node('p','Điểm AI: '+observed.grade.score+' · '+observed.grade.reason));
+      if(observed.failed_assertions?.length){const failures=node('ul',undefined,'assertion-failures');for(const failure of observed.failed_assertions){const matching=test.oracle.steps.find(step=>step.step_index===index)?.assertions.find(assertion=>assertion.kind===failure.kind&&assertion.pointer===failure.pointer);failures.append(node('li','Chưa đạt: '+(matching?assertionDescription(matching):'Điều kiện kiểm tra phản hồi')))}section.append(failures)}
+      else section.append(node('p','Các điều kiện kiểm tra đều đạt.','muted'));
+    }
+    steps.append(section);
+  });card.append(steps);
+  if(test.depends_on.length)card.append(node('p','Chạy sau các test: '+test.depends_on.join(', '),'muted'));
+  const evidence=node('details');evidence.append(node('summary','Bằng chứng từ tài liệu và code'));const seen=new Set();
+  for(const step of test.oracle.steps)for(const assertion of step.assertions)for(const claim of assertion.evidence){const key=claim.source_id+'\n'+claim.quote;if(seen.has(key))continue;seen.add(key);evidence.append(node('p',sources.find(source=>source.id===claim.source_id)?.path||claim.source_id,'evidence-path'),node('pre',claim.quote))}
+  card.append(evidence);return card;
+}
+function caseReviewActions(test,data){
+  const section=node('details',undefined,'case-review test-step');section.append(node('summary','Gợi ý và action cho test case'));
+  const findings=data.artifacts['critic_review.json'].issues.filter(issue=>(issue.case_ids||[]).includes(test.id));
+  const recommended=findings.find(issue=>issue.severity==='blocker'&&issue.suggested_action)||findings.find(issue=>issue.severity==='blocker')||findings.find(issue=>issue.suggested_action);
+  const suggestion=recommended?.suggestion||((data.artifacts['validation_report.json']?.issues||[]).some(issue=>issue.case_id===test.id)?'Yêu cầu TDA sửa cấu trúc test case hoặc oracle theo validation, giữ expected result có căn cứ.':recommended?'Đối chiếu blocker với source. Nếu expectation thiếu căn cứ, yêu cầu TDA chỉnh sửa; nếu blocker áp dụng quá rộng, đề nghị review lại.':'Bạn có thể yêu cầu TDA mở rộng boundary case, chỉnh assertion hoặc review lại test case theo source.');
+  section.append(node('p',suggestion,'review-suggestion'));
+  if(recommended?.suggestion)section.append(node('p','Gợi ý của TDA · cần được review trước khi áp dụng.','muted'));
+  if(recommended?.question)section.append(node('p',recommended.question));
+  section.append(node('p','Action tạo một revision của baseline: chỉ sửa case này hoặc review lại blocker, giữ nguyên các case khác. Baseline cũ được giữ để đối chiếu; gợi ý không tự trở thành expected result đã xác nhận.','muted'));
+  section.append(node('p','Revision dựa trên baseline đang xem; thay đổi trong draft khác không tự được ghép vào.','muted'));
+  const form=node('form'),choice=node('select');choice.setAttribute('aria-label','Action cho '+test.id);
+  for(const [value,label]of [['request_changes','Yêu cầu TDA chỉnh sửa'],['add_acceptance_criteria','Bổ sung acceptance criteria'],['review_blocker','Review lại blocker']]){const option=node('option',label);option.value=value;choice.append(option)}
+  choice.value=recommended?.suggested_action||'request_changes';
+  const notes=node('textarea');notes.maxLength=8000;notes.rows=4;notes.setAttribute('aria-label','Feedback cho '+test.id);notes.placeholder='Nêu điều cần TDA chỉnh sửa hoặc review lại. Không nhập credential hay dữ liệu khách hàng.';notes.value=recommended?.suggestion||recommended?.message||'';
+  const criteria=node('textarea');criteria.maxLength=8000;criteria.rows=4;criteria.setAttribute('aria-label','Acceptance criteria cho '+test.id);criteria.placeholder='Mô tả input, expected result và điều kiện áp dụng. Nội dung này sẽ được lưu làm source cho các lần sinh test sau.';
+  const submit=node('button','Gửi tới TDA','case-review-submit');submit.type='submit';
+  const unavailable=data.can_request_case_review===false||data.baseline.state==='rejected';
+  form.dataset.unavailable=String(unavailable);
+  const update=()=>{criteria.classList.toggle('hidden',choice.value!=='add_acceptance_criteria');criteria.required=choice.value==='add_acceptance_criteria';notes.required=choice.value!=='add_acceptance_criteria'};
+  choice.onchange=update;notes.oninput=criteria.oninput=()=>{dirty=true};update();
+  for(const control of [choice,notes,criteria,submit])control.disabled=unavailable||generationBusy();
+  if(unavailable)section.append(node('p','Baseline này đã được review hoặc có draft mới. Mở baseline mới nhất để gửi feedback.','muted'));
+  form.append(choice,node('p','Feedback cho TDA'),notes,criteria,submit);
+  form.onsubmit=async event=>{event.preventDefault();if(generationBusy()||unavailable)return;submit.disabled=true;submit.textContent='Đang gửi…';try{await act('/api/v1/projects/'+selected+'/baselines/'+data.baseline.version+'/case-review',{case_id:test.id,action:choice.value,feedback:notes.value,acceptance_criteria:choice.value==='add_acceptance_criteria'?criteria.value:''})}finally{submit.disabled=unavailable||generationBusy();submit.textContent='Gửi tới TDA'}};
+  section.append(form);return section;
+}
+function suiteActions(data,cases){
+  const bar=node('nav',undefined,'suite-actions');
+  const supplement=node('button','Sinh bổ sung','secondary');supplement.disabled=data.can_request_case_review===false||generationBusy();
+  const addition=node('details',undefined,'case-review');addition.append(node('summary','Phạm vi sinh bổ sung'));
+  const form=node('form'),feedbackInput=node('textarea');form.dataset.unavailable=String(data.can_request_case_review===false);feedbackInput.required=true;feedbackInput.rows=3;feedbackInput.maxLength=8000;feedbackInput.placeholder='Ví dụ: thêm boundary case cho phép chia, giữ nguyên các case hiện có.';
+  form.append(node('p','TDA bổ sung case từ source và requirements của baseline đang xem, không sinh lại suite. Nếu code hoặc tài liệu thay đổi, dùng Sinh bộ mới trong Tài liệu nguồn.','muted'),feedbackInput);
+  const send=node('button','Bổ sung vào bộ test');send.type='submit';form.append(send);form.onsubmit=async event=>{event.preventDefault();await act('/api/v1/projects/'+selected+'/baselines/'+data.baseline.version+'/case-review',{case_id:'suite',action:'supplement',feedback:feedbackInput.value})};addition.append(form);
+  supplement.onclick=()=>{addition.open=!addition.open;feedbackInput.focus()};
+  const template=node('select');template.setAttribute('aria-label','Mẫu case mới');for(const test of cases){const option=node('option',test.id+' · '+test.kind+' / '+test.runner);option.value=test.id;template.append(option)}
+  const add=node('button','Thêm test case','secondary');add.disabled=!cases.length||data.can_request_case_review===false||generationBusy();add.onclick=()=>openCaseEditor(cases.find(test=>test.id===template.value),data,true);
+  const sources=node('button','Tài liệu nguồn / Sinh bộ mới','secondary');sources.onclick=()=>setTab('settings');
+  const history=node('button','Lịch sử baseline','secondary');history.onclick=()=>{baselineViews.delete(selected);renderProject(projectData);setTab('baselines')};
+  for(const control of [supplement,template,add]){control.classList.add('suite-mutation');control.dataset.unavailable=String(data.can_request_case_review===false||control===add&&!cases.length)}
+  bar.append(supplement,template,add,sources,history);const box=node('div',undefined,'suite-toolbar');box.append(bar,addition);return box;
+}
+function openCaseEditor(test,data,adding=false){
+  const host=$('review');host.querySelector('.manual-case-editor')?.remove();
+  const panel=node('section',undefined,'manual-case-editor case-review review-decision'),form=node('form');form.dataset.unavailable=String(data.can_request_case_review===false);
+  panel.append(node('h3',adding?'Thêm test case':'Sửa tay · '+test.id),node('p','Lưu thành draft mới và kiểm tra lại validation, coverage, Critic. Baseline đang áp dụng giữ nguyên.','muted'));
+  const draft=JSON.parse(JSON.stringify(test)),scenario=JSON.parse(JSON.stringify(data.artifacts['test_plan.json'].scenarios.find(item=>item.id===test.scenario_id)));
+  const field=(label,value,area=false)=>{const input=node(area?'textarea':'input');input.value=value;input.setAttribute('aria-label',label);if(area)input.rows=3;form.append(node('label',label),input);return input};
+  const id=field('Test case ID',adding?'TC-MANUAL-'+Date.now():test.id);id.readOnly=!adding;
+  const title=field('Title',adding?'':test.title);title.required=true;
+  const priority=node('select');priority.setAttribute('aria-label','Priority');for(const value of ['P0','P1','P2']){const option=node('option',value);option.value=value;priority.append(option)}priority.value=scenario.priority;form.append(node('label','Priority'),priority);
+  const bindings=[];
+  const editValue=(object,key,label)=>{const input=field(label,object[key]??'');bindings.push(()=>object[key]=input.value||null);return input};
+  if(draft.runner==='http'||draft.runner==='ai'||draft.runner==='k6')for(const [index,step]of draft.steps.entries()){
+    const method=field('Bước '+(index+1)+' · Method',step.method);bindings.push(()=>step.method=method.value.toUpperCase());editValue(step,'path','Bước '+(index+1)+' · Path');
+    for(const parameter of step.query)editValue(parameter,'value','Test data · '+parameter.name);
+    if(step.body_json!==null)editValue(step,'body_json','Request body JSON');
+  }
+  if(draft.unit){editValue(draft.unit,'module_path','Module');editValue(draft.unit,'function','Function');editValue(draft.unit,'args_json','Arguments JSON');editValue(draft.unit,'kwargs_json','Keyword arguments JSON')}
+  if(draft.browser)for(const [index,step]of draft.browser.actions.entries())for(const key of ['path','selector','value'])if(step[key]!==null&&step[key]!==undefined)editValue(step,key,'Bước '+(index+1)+' · '+step.action+' · '+key);
+  for(const step of draft.oracle.steps)for(const assertion of step.assertions){const input=field('Expected result · B'+(step.step_index+1)+' · '+assertion.kind+' '+assertion.pointer,assertion.expected_json);bindings.push(()=>{try{assertion.expected_json=JSON.stringify(JSON.parse(input.value))}catch{assertion.expected_json=JSON.stringify(input.value)}})}
+  const criteria=field('Acceptance criteria xác nhận expected result (nếu thay đổi yêu cầu)', '',true);criteria.maxLength=8000;
+  form.append(node('p','Criteria được lưu thành source do maintainer cung cấp và dùng làm căn cứ cho oracle. Nếu để trống, giữ dẫn chứng hiện có; Critic vẫn kiểm tra chúng.','muted'));
+  const advanced=node('details');advanced.append(node('summary','Cấu trúc nâng cao · steps, assertions và traceability'));const raw=node('textarea');raw.rows=12;raw.setAttribute('aria-label','Test case JSON');raw.value=JSON.stringify(draft,null,2);let rawChanged=false;raw.oninput=()=>rawChanged=true;advanced.append(raw);const scenarioRaw=node('textarea');scenarioRaw.rows=8;scenarioRaw.setAttribute('aria-label','Scenario JSON');scenarioRaw.value=JSON.stringify(scenario,null,2);if(adding)advanced.append(node('p','Scenario mới: giữ requirement IDs hợp lệ, chọn kind/runner phù hợp.'),scenarioRaw);form.append(advanced);
+  const actions=node('nav'),save=node('button',adding?'Lưu case mới':'Lưu chỉnh sửa'),cancel=node('button','Hủy','secondary');save.type='submit';cancel.type='button';cancel.onclick=()=>panel.remove();actions.append(save,cancel);form.append(actions);
+  form.onsubmit=async event=>{event.preventDefault();if(generationBusy())return;try{
+    bindings.forEach(bind=>bind());let content=rawChanged?JSON.parse(raw.value):draft;content.id=id.value.trim();content.title=title.value;content.oracle.case_id=content.id;
+    let plan=adding?JSON.parse(scenarioRaw.value):scenario;plan.priority=priority.value;plan.title=content.title;
+    if(adding){plan.id='SCN-'+content.id;content.scenario_id=plan.id;content.depends_on=[]}
+    await act('/api/v1/projects/'+selected+'/baselines/'+data.baseline.version+'/case-review',{case_id:content.id,action:adding?'add_case':'manual_edit',feedback:adding?'Maintainer thêm test case':'Maintainer chỉnh sửa test case',acceptance_criteria:criteria.value,case_data:content,scenario_data:plan});
+  }catch(error){feedback('Không lưu được: '+error.message,true)}};
+  panel.append(form);host.insertBefore(panel,host.querySelector('.review-toolbar'));updateReviewButtons();panel.scrollIntoView({block:'start'});title.focus();
+}
+function testCaseTableValues(test,result){
+  const steps=test.unit?['Gọi '+test.unit.module_path+' · '+test.unit.function]:test.browser?test.browser.actions.map(action=>({goto:'Mở trang',fill:'Nhập dữ liệu',click:'Bấm',select:'Chọn',check:'Đánh dấu',observe:'Quan sát'})[action.action]+' '+(action.path||action.selector||'')):test.steps.map(step=>step.method+' '+step.path);
+  const inputs=test.unit?['args: '+test.unit.args_json,'kwargs: '+test.unit.kwargs_json]:test.browser?test.browser.actions.filter(action=>action.value!==null&&action.value!==undefined).map(action=>action.selector+' = '+action.value):test.steps.flatMap(step=>[...step.query.map(item=>item.name+' = '+item.value),...(step.body_json!==null?['Body: '+step.body_json]:[])]);
+  const conditions=[];if(test.depends_on?.length)conditions.push('Dependency: '+test.depends_on.join(', '));
+  if(test.load)inputs.push('VU: '+test.load.vus,'Duration: '+test.load.duration_seconds+' s');
+  if(test.unit)conditions.push('Module '+test.unit.module_path+'; runtime '+test.unit.language);else conditions.push('Ứng dụng test sẵn sàng');
+  if([...test.steps,...(test.cleanup||[])].some(step=>step.auth==='bearer_env')||test.browser?.auth==='bearer_env')conditions.push('Project API token');
+  const expected=test.oracle.steps.flatMap(step=>step.assertions.map(assertion=>'B'+(step.step_index+1)+': '+assertionDescription(assertion)));
+  const actual=!result?'Chờ QC chạy trên PR':result.status==='pass'?'Tham chiếu: Pass':result.status==='defect'?'Tham chiếu: Fail':result.status==='environment_error'?'Tham chiếu: Environment error':result.status==='blocked'?'Tham chiếu: Blocked':'Tham chiếu: '+result.status;
+  const observations=(result?.steps||[]).flatMap(step=>[...(step.actual?['B'+(step.index+1)+': '+JSON.stringify(step.actual)]:[]),...(step.status_code!==undefined?['B'+(step.index+1)+': HTTP '+step.status_code]:[]),...(step.p95_ms!==undefined?['p95: '+step.p95_ms+' ms']:[])]);
+  return {steps:steps.map((step,index)=>(index+1)+'. '+step).join('\n'),inputs:inputs.join('\n')||'Không có input bổ sung',conditions:conditions.join('\n'),expected:expected.join('\n'),actual:[actual,...observations].join('\n')};
+}
+async function showBaseline(version){try{
+  const projectId=selected,navigation=++reviewNavigationRevision,data=await api('/api/v1/projects/'+projectId+'/baselines/'+version);if(selected!==projectId||navigation!==reviewNavigationRevision)return;
+  baselineViews.set(projectId,version);setTab('baselines');const artifacts=data.artifacts,container=$('review'),cases=artifacts['cases/cases.json'],results=data.execution?.results||[],blockers=artifacts['review_gate.json'].design_blockers;
+  container.replaceChildren(node('h2','Duyệt bộ kiểm thử '+version),node('p','Phiên bản code được dùng để sinh test: '+data.baseline.source_revision,'muted'));
+  const summary=node('div',undefined,'review-summary');summary.append(node('strong',cases.length+' test case'),node('p','Review expected result và source; xử lý case có blocker trước. QC thực thi trên PR sau khi baseline được duyệt.','muted'));container.append(summary);
+  const changes=artifacts['review_changes.json'],lineage=artifacts['onboarding.json'];
+  if(changes||lineage?.review_baseline){const parentVersion=changes?.previous_baseline||lineage.review_baseline,revision=node('details',undefined,'review-decision');revision.append(node('summary','Thay đổi so với baseline gốc · '+parentVersion),node('p',changes?'Sửa: '+(changes.changed_case_ids.join(', ')||'0')+' · Thêm: '+((changes.added_case_ids||[]).join(', ')||'0')+' · Xóa: '+((changes.deleted_case_ids||[]).join(', ')||'0')+' · Giữ nguyên: '+changes.preserved_case_count+' case.':'Draft cũ được sinh lại toàn suite từ feedback cho '+lineage.review_case_id+'.','muted'));const parent=node('button','Xem baseline gốc','secondary');parent.onclick=()=>showBaseline(parentVersion);revision.append(parent);container.append(revision)}
+  if(data.execution){const reference=node('div',undefined,'review-execution-warning');reference.append(node('strong','Kết quả chạy tham chiếu · thông tin đối chiếu'),node('p','Đã chạy '+results.length+'/'+cases.length+' test · '+results.filter(result=>result.status==='pass').length+' đạt · '+results.filter(result=>result.status==='defect').length+' phát hiện lỗi ứng dụng.'),node('p','Kết quả ứng dụng không quyết định duyệt thiết kế. Test sai định nghĩa hoặc thiếu căn cứ vẫn phải sửa.'));container.append(reference)}else container.append(node('p','Chưa chạy tham chiếu. Bạn vẫn có thể duyệt thiết kế hợp lệ; QC sẽ thực thi khi có PR.','review-summary'));
+  const messages=node('details',undefined,'review-technical');messages.append(node('summary','Blocker, coverage gap và câu hỏi ('+blockers.length+')'));reviewMessages(messages,data);
+  const metrics=node('div',undefined,'metrics');for(const [name,metric]of Object.entries(artifacts['coverage.json'].metrics))metrics.append(node('div',(reviewNames[name]||name)+': '+(metric.designed_ratio===null?'Không áp dụng':Math.round(metric.designed_ratio*100)+'%')+' ('+metric.designed_covered+'/'+metric.total+')','metric'));
+  data.baseline.version=version;
+  const toolbar=node('div',undefined,'review-toolbar'),search=node('input');search.type='search';search.placeholder='Tìm theo test case, API, title hoặc requirement';search.setAttribute('aria-label','Tìm test case');
+  const statusFilter=node('select');statusFilter.setAttribute('aria-label','Lọc trạng thái test case');for(const [value,label]of [['all','Tất cả trạng thái'],['attention','Cần xử lý'],['valid','Hợp lệ']]){const option=node('option',label);option.value=value;statusFilter.append(option)}
+  const runnerFilter=node('select');runnerFilter.setAttribute('aria-label','Lọc runner');for(const value of ['all',...new Set(cases.map(test=>test.runner||'http'))]){const option=node('option',value==='all'?'Tất cả runner':value);option.value=value;runnerFilter.append(option)}
+  const counter=node('span',undefined,'review-counter'),list=node('div',undefined,'case-table-wrap'),table=node('table',undefined,'case-table'),head=node('thead'),header=node('tr'),rows=node('tbody'),empty=node('p','Không có test case khớp bộ lọc.','case-empty hidden');
+  table.append(node('caption','Danh sách test case · baseline '+version));const columns=node('colgroup');for(const width of [10,17,8,10,10,12,13,9,11]){const column=node('col');column.style.width=width+'%';columns.append(column)}table.append(columns);for(const label of ['Test case ID','Title / Requirement','Type / Runner','Preconditions','Test data','Test steps','Expected result','Review status','Action']){const cell=node('th',label);cell.scope='col';cell.title=label;header.append(cell)}head.append(header);table.append(head,rows);list.append(table,empty);
+  toolbar.append(search,statusFilter,runnerFilter,counter);container.append(suiteActions(data,cases),metrics,toolbar,list,messages);
+  let attentionCount=0;const cards=[];
+  for(const test of cases){const issues=(artifacts['validation_report.json']?.issues||[]).filter(issue=>issue.case_id===test.id),caseBlockers=artifacts['critic_review.json'].issues.filter(issue=>issue.severity==='blocker'&&(issue.case_ids||[]).includes(test.id)),attention=issues.length>0||caseBlockers.length>0;
+    if(attention)attentionCount++;
+    const card=readableCase(test,results.find(result=>result.case_id===test.id),artifacts['sources.json'].documents,issues,{validated:(artifacts['validation_report.json']?.valid_case_ids||[]).includes(test.id),hasReference:!!data.execution,blockers:caseBlockers});
+    const body=node('details',undefined,'case-body');body.append(node('summary','Expected result, source và action'));
+    for(const child of [...card.children].slice(2))body.append(child);
+    const requests=[...body.children].find(element=>element.tagName==='DETAILS');if(requests)requests.open=true;
+    const actionPanel=caseReviewActions(test,data);body.append(actionPanel);
+    const controls=node('div',undefined,'case-controls'),view=node('button','Xem chi tiết','secondary');body.id='review-case-'+test.id;view.setAttribute('aria-controls',body.id);view.setAttribute('aria-expanded','false');body.ontoggle=()=>{view.textContent=body.open?'Thu gọn':'Xem chi tiết';view.setAttribute('aria-expanded',String(body.open))};view.onclick=()=>{body.open=!body.open;body.ontoggle()};controls.append(view);
+    if(attention){const resolve=node('button','Xử lý blocker','secondary');resolve.onclick=()=>{body.open=true;actionPanel.open=true;body.ontoggle();actionPanel.scrollIntoView({block:'nearest'})};controls.append(resolve)}
+    if(data.can_request_case_review!==false){const edit=node('button','Sửa tay','secondary');edit.onclick=()=>openCaseEditor(test,data);const remove=node('button','Xóa','secondary');remove.onclick=()=>{if(confirm('Xóa '+test.id+' khỏi draft mới? Coverage sẽ được tính lại.'))act('/api/v1/projects/'+selected+'/baselines/'+version+'/case-review',{case_id:test.id,action:'delete_case',feedback:'Maintainer xóa case khỏi suite'})};controls.append(edit,remove)}
+    card.append(body);
+    const result=results.find(item=>item.case_id===test.id),values=testCaseTableValues(test,result),row=node('tr',undefined,'case-summary-row'),state=card.querySelector('.state').cloneNode(true),titleCell=node('td',undefined,'case-title');
+    titleCell.append(node('strong',test.title),node('p',test.requirement_ids.join(', '),'muted'));const scenario=data.artifacts['test_plan.json']?.scenarios?.find(s=>s.id===test.scenario_id);if(scenario?.priority)titleCell.append(node('p','Priority: '+scenario.priority,'muted'));
+    const statusCell=node('td');statusCell.append(state);const actionCell=node('td');actionCell.append(controls);
+    const previewCell=(text,className)=>{const cell=node('td',undefined,className),preview=node('span',text,'cell-preview');preview.title=text;cell.append(preview);return cell};
+    row.append(previewCell(test.id),titleCell,previewCell(test.kind+'\n'+(test.runner||'http')),previewCell(values.conditions),previewCell(values.inputs),previewCell(values.steps,'case-steps'),previewCell(values.expected,'case-expected'),statusCell,actionCell);
+    const detailRow=node('tr',undefined,'case-detail-row hidden'),detailCell=node('td');detailCell.colSpan=9;detailCell.append(card);detailRow.append(detailCell);rows.append(row,detailRow);
+    body.ontoggle=()=>{view.textContent=body.open?'Thu gọn':'Xem chi tiết';view.setAttribute('aria-expanded',String(body.open));detailRow.classList.toggle('hidden',!body.open)};
+    cards.push({card:row,detailRow,body,attention,runner:test.runner||'http',text:(test.id+' '+test.title+' '+test.requirement_ids.join(' ')+' '+values.steps+' '+values.inputs+' '+values.expected).toLocaleLowerCase('vi')});
+  }
+  const applyFilters=()=>{const query=search.value.trim().toLocaleLowerCase('vi');let visible=0;for(const item of cards){const match=(!query||item.text.includes(query))&&(runnerFilter.value==='all'||runnerFilter.value===item.runner)&&(statusFilter.value==='all'||statusFilter.value==='attention'&&item.attention||statusFilter.value==='valid'&&!item.attention);item.card.classList.toggle('hidden',!match);item.detailRow.classList.toggle('hidden',!match||!item.body.open);if(match)visible++}counter.textContent=visible+'/'+cases.length+' test case';empty.classList.toggle('hidden',visible>0)};
+  search.oninput=statusFilter.onchange=runnerFilter.onchange=applyFilters;applyFilters();
+  const quality=node('details',undefined,'review-technical');quality.append(node('summary','Nhận xét về chất lượng bộ test'));
+  for(const issue of artifacts['critic_review.json'].issues){const entry=node('div',undefined,'test-step');entry.append(node('strong',({blocker:'Cần xử lý trước khi duyệt',warning:'Điểm cần lưu ý',info:'Thông tin tham khảo'}[issue.severity]||'Nhận xét')+(issue.case_ids.length?' · '+issue.case_ids.join(', '):'')),node('p',readableMessage(issue.message)));quality.append(entry)}container.append(quality);
+  const technical=node('details',undefined,'review-technical');technical.append(node('summary','Dữ liệu kỹ thuật gốc để đối chiếu'),detail('Báo cáo chạy test',data.execution),detail('Báo cáo chất lượng',artifacts['critic_review.json']),detail('Liên kết yêu cầu với test',artifacts['traceability.json']),detail('Nguồn đầu vào',artifacts['sources.json']),detail('Định nghĩa test gốc',cases),detail('Điều kiện duyệt',artifacts['review_gate.json']));container.append(technical);
+  const actions=node('nav'),approve=node('button','Duyệt và dùng cho PR');approve.disabled=data.can_approve_baseline===false||data.baseline.state!=='draft'||!cases.length||blockers.length>0||(artifacts['review_gate.json'].blocking_questions||[]).length>0||(artifacts['validation_report.json']?.issues||[]).length>0||!artifacts['coverage.json'].design_satisfied||artifacts['critic_review.json'].recommendation!=='ready_for_human_review'||(artifacts['critic_review.json'].issues||[]).some(issue=>issue.severity==='blocker');
+  approve.onclick=async()=>{if(confirm('Bạn đã đối chiếu yêu cầu, kết quả mong đợi, bằng chứng và độ bao phủ thiết kế? Việc duyệt không xác nhận code ứng dụng đã chạy đúng.'))await act('/api/v1/projects/'+selected+'/baselines/'+version+'/approve',{})};
+  const reject=node('button','Từ chối bộ test','danger');reject.disabled=data.baseline.state!=='draft';reject.onclick=()=>act('/api/v1/projects/'+selected+'/baselines/'+version+'/reject',{});actions.append(approve,reject);
+  const decision=node('div',undefined,'review-decision');decision.append(node('h3',approve.disabled?'Baseline chưa đủ điều kiện duyệt':'Baseline sẵn sàng để bạn review và duyệt'),node('p',data.can_approve_baseline===false&&data.baseline.state==='draft'?'Bạn đang xem draft cũ hoặc TDA đang xử lý revision mới. Chỉ revision hiện tại được duyệt; bạn có thể dùng draft gốc để tạo revision khác.':attentionCount?attentionCount+' test case cần xử lý. Dùng “Xử lý blocker” để xem gợi ý và gửi feedback cho TDA.':approve.disabled?'Xem blocker hoặc coverage gap ở phần thông tin bên dưới.':'Các kiểm tra thiết kế đã đạt. Việc duyệt không xác nhận code ứng dụng đã pass.','muted'));
+  const checks=node('div',undefined,'review-checks');checks.append(node('span','Validation: '+((artifacts['validation_report.json']?.issues||[]).length?'Cần sửa':'Đạt')),node('span','Coverage: '+(artifacts['coverage.json'].design_satisfied?'Đạt':'Chưa đạt')),node('span','Critic: '+(artifacts['critic_review.json'].recommendation==='ready_for_human_review'?'Đạt':'Có blocker')));decision.append(checks,actions);if(attentionCount){const focus=node('button','Xem case cần xử lý','secondary');focus.onclick=()=>{statusFilter.value='attention';applyFilters();toolbar.scrollIntoView({block:'start'})};actions.prepend(focus)}container.insertBefore(decision,summary.nextSibling);
+  if(projectData?.project.project_id===projectId)reviewJobProgress(projectData);updateReviewButtons();
+}catch(error){feedback(error.message,true)}}
+async function start(){try{identity=await api('/api/v1/design/session');if(identity.install_url){$('install').href=identity.install_url;$('install').classList.remove('hidden')}if(!identity.enabled)feedback('Test Design chưa được bật cho dịch vụ này.',true);if(identity.login){$('identity').textContent=identity.login;$('login').classList.add('hidden');$('logout').classList.remove('hidden');$('workspace').classList.remove('hidden');await loadProjects();setInterval(async()=>{try{await loadProjects();await loadProject()}catch(error){feedback(error.message,true)}},6000)}else if(!identity.oauth_configured)feedback('Quản trị App cần hoàn tất cấu hình GitHub login cho portal.',true)}catch(error){feedback(error.message,true)}}
+const listProjectsImmediately=loadProjects;
+let listingTime=0,listingSelection=null;
+loadProjects=async function(){
+  if(listingSelection===selected&&Date.now()-listingTime<30000)return;
+  listingSelection=selected;listingTime=Date.now();
+  await listProjectsImmediately();
+};
+const renderBasicProject=renderProject;
+renderProject=function(data){
+  renderBasicProject(data);
+  const form=$('project').querySelector('form'),project=data.project;
+  const upload=createUploadPicker(data);form.insertBefore(upload,form.querySelector('nav'));
+  form.onsubmit=async event=>{
+    event.preventDefault();
+    if(upload.uploading||generationBusy())return;
+    await act('/api/v1/projects/'+selected+'/setup',{
+      requirements_text:'',
+      source_paths:form.querySelector('.source-picker').selectedPaths(),
+      uploaded_document_ids:upload.selectedIds(),
+      allow_mutations:project.allow_mutations
+    });
+  };
+};
+let activeTab='baselines';
+function setTab(tab){
+  activeTab=tab;
+  document.querySelectorAll('.repo-tab').forEach(button=>{button.setAttribute('aria-selected',String(button.dataset.tab===tab));button.tabIndex=button.dataset.tab===tab?0:-1});
+  $('project').classList.toggle('hidden',tab==='baselines');
+  $('review').classList.toggle('hidden',tab!=='baselines'||!selected);
+  $('overview-readme').classList.toggle('hidden',tab!=='overview');
+  let form=$('project').querySelector('form');if(form)form.classList.toggle('hidden',tab!=='settings');
+}
+document.querySelectorAll('.repo-tab').forEach(button=>{button.onclick=()=>setTab(button.dataset.tab);button.onkeydown=event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();let tabs=[...document.querySelectorAll('.repo-tab')];let index=tabs.indexOf(button);index=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tabs[index].focus();setTab(tabs[index].dataset.tab)}});
+function closeRepositoryMenu(){$('repository-menu').classList.add('hidden');$('switch-repository').setAttribute('aria-expanded','false')}
+$('switch-repository').onclick=()=>{let open=$('repository-menu').classList.toggle('hidden')===false;$('switch-repository').setAttribute('aria-expanded',String(open))};
+document.addEventListener('click',event=>{if(!event.target.closest('.repo-switch'))closeRepositoryMenu()});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){closeRepositoryMenu();$('switch-repository').focus()}});
+const renderConfiguredProject=renderProject;
+renderProject=function(data){
+  renderConfiguredProject(data);
+  let project=data.project,parts=project.repository.full_name.split('/');
+  $('repo-owner').textContent=parts[0];$('repo-name').textContent=parts.slice(1).join('/');
+  $('baseline-count').textContent=data.baselines.length;
+  $('welcome').classList.add('hidden');
+  const about=$('repository-about');about.replaceChildren(node('h2','Thông tin dự án'),node('p','Bộ test được thiết kế từ codebase và tài liệu của repository.'));
+  const state=node('span',labels[project.state]||project.state,'state');state.dataset.state=project.state;about.append(state);
+  about.append(node('h3','Bộ test đang áp dụng'),node('code',project.active_baseline||'Chưa có baseline được duyệt'));
+  about.append(node('h3','Môi trường tự phát hiện'),node('p',project.target_profile.origin==='maintainer'?'Sẽ tự phát hiện lại ở lượt sinh tiếp theo':['fastapi','flask'].includes(project.target_profile.kind)?project.target_profile.kind+' · '+project.target_profile.app:project.target_profile.kind==='node'?'Node.js · '+project.target_profile.evidence_path:project.target_profile.kind==='declared'?'Tự phát hiện từ cấu hình repository':project.target_profile.reason||'Đang chờ tự phát hiện môi trường','muted'));
+  about.append(node('span',data.baselines.length+' baseline · '+project.discovered_sources.length+' nguồn được phát hiện','sidebar-meta'));
+  setTab(activeTab);
+  updateGenerationButtons();
+};
+const selectRepository=select;
+select=async function(id){closeRepositoryMenu();activeTab='baselines';await selectRepository(id);if(projectData?.project.project_id===id){if(projectData.baselines.length)await showBaseline(projectData.baselines[0].version);else setTab('settings')}};
+const systemTheme=matchMedia('(prefers-color-scheme: dark)');
+function applyTheme(){document.documentElement.dataset.theme=systemTheme.matches?'dark':'light'}
+systemTheme.addEventListener('change',applyTheme);
+applyTheme();setTab(activeTab);
+$('logout').onclick=async()=>{await fetch('/auth/logout',{method:'POST',headers:{'X-CSRF-Token':identity.csrf}});location.href='/app'};
+</script>
+<script src="/assets/design-workspace.js"></script>
+<script>start();</script>
+</body></html>
