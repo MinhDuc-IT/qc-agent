@@ -1,0 +1,15 @@
+# Build from the qc-agent repository root: docker build -f Dockerfile.with-tda .
+FROM grafana/k6:2.3.0 AS loadrunner
+FROM python:3.12-slim
+RUN apt-get update && apt-get install -y --no-install-recommends git docker.io && rm -rf /var/lib/apt/lists/*
+COPY --from=loadrunner /usr/bin/k6 /usr/local/bin/k6
+WORKDIR /app
+COPY requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+COPY packages/test-design-agent /opt/test-design-agent
+RUN pip install --no-cache-dir /opt/test-design-agent
+RUN pip install --no-cache-dir playwright==1.63.0 && python -m playwright install --with-deps chromium
+ENV AGENT_QC_K6_BINARY=/usr/local/bin/k6 AGENT_QC_BROWSER_CHANNEL="" AGENT_QC_TEST_ISOLATION=docker
+COPY app ./app
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
