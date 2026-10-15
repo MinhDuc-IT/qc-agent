@@ -1,0 +1,3 @@
+# Install once on the App backend, not in each onboarded repository.
+-e ./packages/test-design-agent
+playwright==1.63.0

@@ -1,0 +1,217 @@
+{
+  "$defs": {
+    "CoveragePolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Requirement",
+          "type": "number"
+        },
+        "feature": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Feature",
+          "type": "number"
+        },
+        "risk": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Risk",
+          "type": "number"
+        },
+        "api": {
+          "default": 1.0,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Api",
+          "type": "number"
+        }
+      },
+      "title": "CoveragePolicy",
+      "type": "object"
+    },
+    "SourceSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "code",
+            "prd",
+            "srs",
+            "openapi",
+            "db_schema",
+            "existing_tests"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "paths": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Paths",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "paths"
+      ],
+      "title": "SourceSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "2.0",
+      "default": "2.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "project": {
+      "minLength": 1,
+      "title": "Project",
+      "type": "string"
+    },
+    "source_revision": {
+      "minLength": 1,
+      "title": "Source Revision",
+      "type": "string"
+    },
+    "root": {
+      "default": ".",
+      "title": "Root",
+      "type": "string"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/SourceSpec"
+      },
+      "minItems": 1,
+      "title": "Sources",
+      "type": "array"
+    },
+    "kinds": {
+      "items": {
+        "enum": [
+          "functional",
+          "integration",
+          "security",
+          "performance",
+          "ai_evaluation"
+        ],
+        "type": "string"
+      },
+      "title": "Kinds",
+      "type": "array"
+    },
+    "model": {
+      "minLength": 1,
+      "title": "Model",
+      "type": "string"
+    },
+    "reasoning_effort": {
+      "anyOf": [
+        {
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reasoning Effort"
+    },
+    "max_calls": {
+      "default": 24,
+      "maximum": 100,
+      "minimum": 4,
+      "title": "Max Calls",
+      "type": "integer"
+    },
+    "max_output_tokens": {
+      "default": 8000,
+      "maximum": 32000,
+      "minimum": 1000,
+      "title": "Max Output Tokens",
+      "type": "integer"
+    },
+    "max_rounds": {
+      "default": 2,
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Max Rounds",
+      "type": "integer"
+    },
+    "max_repairs": {
+      "default": 1,
+      "maximum": 3,
+      "minimum": 0,
+      "title": "Max Repairs",
+      "type": "integer"
+    },
+    "max_cases": {
+      "default": 50,
+      "maximum": 200,
+      "minimum": 1,
+      "title": "Max Cases",
+      "type": "integer"
+    },
+    "max_source_bytes": {
+      "default": 160000,
+      "maximum": 500000,
+      "minimum": 1000,
+      "title": "Max Source Bytes",
+      "type": "integer"
+    },
+    "coverage": {
+      "$ref": "#/$defs/CoveragePolicy"
+    },
+    "runners": {
+      "items": {
+        "enum": [
+          "http",
+          "unit",
+          "browser",
+          "k6",
+          "ai"
+        ],
+        "type": "string"
+      },
+      "title": "Runners",
+      "type": "array"
+    },
+    "reference_execution": {
+      "default": true,
+      "title": "Reference Execution",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "project",
+    "source_revision",
+    "sources",
+    "model"
+  ],
+  "title": "WorkflowConfig",
+  "type": "object"
+}

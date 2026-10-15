@@ -1,0 +1,173 @@
+{
+  "$defs": {
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "quote"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "PlannedScenario": {
+      "additionalProperties": false,
+      "properties": {
+        "runner": {
+          "default": "http",
+          "enum": [
+            "http",
+            "unit",
+            "browser",
+            "k6",
+            "ai"
+          ],
+          "title": "Runner",
+          "type": "string"
+        },
+        "expectation_basis": {
+          "default": "specification",
+          "enum": [
+            "specification",
+            "implementation"
+          ],
+          "title": "Expectation Basis",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "functional",
+            "integration",
+            "security",
+            "performance",
+            "ai_evaluation"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "priority": {
+          "enum": [
+            "P0",
+            "P1",
+            "P2"
+          ],
+          "title": "Priority",
+          "type": "string"
+        },
+        "requirement_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Requirement Ids",
+          "type": "array"
+        },
+        "feature_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Feature Ids",
+          "type": "array"
+        },
+        "risk_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Risk Ids",
+          "type": "array"
+        },
+        "operation_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Operation Ids",
+          "type": "array"
+        },
+        "acceptance_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Acceptance Criteria",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "kind",
+        "priority",
+        "requirement_ids",
+        "feature_ids",
+        "risk_ids",
+        "operation_ids",
+        "acceptance_criteria",
+        "evidence"
+      ],
+      "title": "PlannedScenario",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "scenarios": {
+      "items": {
+        "$ref": "#/$defs/PlannedScenario"
+      },
+      "title": "Scenarios",
+      "type": "array"
+    },
+    "rationale": {
+      "title": "Rationale",
+      "type": "string"
+    },
+    "open_questions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Open Questions",
+      "type": "array"
+    },
+    "blocking_questions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Questions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "scenarios",
+    "rationale",
+    "open_questions"
+  ],
+  "title": "TestPlan",
+  "type": "object"
+}

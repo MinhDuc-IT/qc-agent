@@ -1,0 +1,7 @@
+pydantic>=2.9,<3
+PyYAML>=6,<7
+pytest>=8,<9
+openai>=3.19.2,<4
+python-dotenv>=1,<2
+fastapi==0.115.12
+uvicorn[standard]==0.34.2

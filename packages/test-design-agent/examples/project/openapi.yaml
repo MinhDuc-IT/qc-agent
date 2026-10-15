@@ -1,0 +1,27 @@
+openapi: 3.0.3
+info: {title: Calculator, version: '1.0'}
+paths:
+  /health:
+    get:
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {status: {type: string, enum: [ok]}}
+  /api/add:
+    get:
+      parameters:
+        - {name: a, in: query, required: true, schema: {type: integer}}
+        - {name: b, in: query, required: true, schema: {type: integer}}
+      responses:
+        '200':
+          description: Mathematical sum
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {result: {type: integer}}
+        '422': {description: Missing or invalid integer input}

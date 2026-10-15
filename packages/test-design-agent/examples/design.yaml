@@ -1,0 +1,20 @@
+schema_version: '2.0'
+project: calculator-api
+source_revision: reference-v1
+root: project
+# Explicit model selection; replace with a structured-output model available to your account.
+model: gpt-5.4-mini
+reasoning_effort: low
+sources:
+  - id: requirements
+    kind: prd
+    paths: [prd.md]
+  - id: api
+    kind: openapi
+    paths: [openapi.yaml]
+kinds: [functional, integration, performance]
+max_calls: 24
+max_rounds: 2
+max_repairs: 1
+max_cases: 30
+coverage: {requirement: 1.0, feature: 1.0, risk: 1.0, api: 1.0}

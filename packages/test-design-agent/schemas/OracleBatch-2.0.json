@@ -1,0 +1,167 @@
+{
+  "$defs": {
+    "Assertion": {
+      "additionalProperties": false,
+      "properties": {
+        "expectation_basis": {
+          "default": "specification",
+          "enum": [
+            "specification",
+            "implementation"
+          ],
+          "title": "Expectation Basis",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "status",
+            "json_equals",
+            "json_contains",
+            "latency_ms",
+            "text_equals",
+            "text_contains",
+            "return_equals",
+            "raises",
+            "exception_message",
+            "dom_visible",
+            "dom_text_equals",
+            "dom_text_contains",
+            "dom_value_equals",
+            "latency_p95_ms",
+            "error_rate",
+            "ai_score"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "pointer": {
+          "title": "Pointer",
+          "type": "string"
+        },
+        "expected_json": {
+          "title": "Expected Json",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "pointer",
+        "expected_json",
+        "evidence"
+      ],
+      "title": "Assertion",
+      "type": "object"
+    },
+    "CaseOracle": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/StepOracle"
+          },
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        },
+        "rationale": {
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "steps",
+        "rationale"
+      ],
+      "title": "CaseOracle",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "quote"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "StepOracle": {
+      "additionalProperties": false,
+      "properties": {
+        "step_index": {
+          "maximum": 19,
+          "minimum": 0,
+          "title": "Step Index",
+          "type": "integer"
+        },
+        "assertions": {
+          "items": {
+            "$ref": "#/$defs/Assertion"
+          },
+          "minItems": 1,
+          "title": "Assertions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "step_index",
+        "assertions"
+      ],
+      "title": "StepOracle",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "oracles": {
+      "items": {
+        "$ref": "#/$defs/CaseOracle"
+      },
+      "title": "Oracles",
+      "type": "array"
+    },
+    "open_questions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Open Questions",
+      "type": "array"
+    },
+    "blocking_questions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Questions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "oracles",
+    "open_questions"
+  ],
+  "title": "OracleBatch",
+  "type": "object"
+}

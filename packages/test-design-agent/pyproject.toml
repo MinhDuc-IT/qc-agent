@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "test-design-agent"
+version = "0.3.0"
+description = "Evidence-based LLM test-design pipeline and versioned QC baselines"
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2.9,<3", "PyYAML>=6,<7", "openai>=3.19.2,<4", "python-dotenv>=1,<2"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<9"]
+runners = ["pytest>=8,<9", "playwright>=1.63,<2"]
+worker = ["fastapi==0.115.12", "uvicorn[standard]==0.34.2"]
+
+[project.scripts]
+test-design-agent = "tda.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["tda*"]

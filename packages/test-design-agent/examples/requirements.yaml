@@ -1,0 +1,26 @@
+schema_version: '1.0'
+project: calculator-api
+source_revision: demo-v1
+requirements:
+  - id: REQ-ADD
+    title: Addition returns the mathematical sum
+    source_ref: PRD#addition
+    scenarios:
+      - id: ADD-POSITIVE
+        title: Add two positive integers
+        path: /add
+        query: {a: 2, b: 3}
+        priority: P0
+        risks: [incorrect-arithmetic]
+        oracle:
+          status: 200
+          json_equals: {result: 5}
+          source_ref: PRD#addition-example-2-plus-3
+      - id: ADD-NEGATIVE
+        title: Add a negative integer
+        path: /add
+        query: {a: -2, b: 3}
+        oracle:
+          status: 200
+          json_equals: {result: 1}
+          source_ref: PRD#signed-integers

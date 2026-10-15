@@ -1,0 +1,122 @@
+{
+  "$defs": {
+    "CriticIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "severity": {
+          "enum": [
+            "blocker",
+            "warning",
+            "info"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "case_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Case Ids",
+          "type": "array"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "suggested_action": {
+          "anyOf": [
+            {
+              "enum": [
+                "request_changes",
+                "add_acceptance_criteria",
+                "review_blocker"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Suggested Action"
+        },
+        "suggestion": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Suggestion",
+          "type": "string"
+        },
+        "question": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Question",
+          "type": "string"
+        }
+      },
+      "required": [
+        "severity",
+        "case_ids",
+        "message",
+        "evidence"
+      ],
+      "title": "CriticIssue",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "quote"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "recommendation": {
+      "enum": [
+        "ready_for_human_review",
+        "needs_changes"
+      ],
+      "title": "Recommendation",
+      "type": "string"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    },
+    "issues": {
+      "items": {
+        "$ref": "#/$defs/CriticIssue"
+      },
+      "title": "Issues",
+      "type": "array"
+    }
+  },
+  "required": [
+    "recommendation",
+    "summary",
+    "issues"
+  ],
+  "title": "CriticReview",
+  "type": "object"
+}

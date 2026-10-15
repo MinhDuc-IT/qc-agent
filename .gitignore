@@ -10,3 +10,7 @@ __pycache__/
 .agent-qc-k6/
 external-agents.yaml
 *.pyc
+*.egg-info/
+.test-tmp*/
+packages/test-design-agent/build/
+packages/test-design-agent/dist/

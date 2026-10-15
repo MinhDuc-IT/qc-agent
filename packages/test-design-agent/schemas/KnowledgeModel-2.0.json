@@ -1,0 +1,259 @@
+{
+  "$defs": {
+    "DependencyNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "evidence"
+      ],
+      "title": "DependencyNode",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "quote"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "FeatureNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "requirement_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Requirement Ids",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "requirement_ids",
+        "evidence"
+      ],
+      "title": "FeatureNode",
+      "type": "object"
+    },
+    "RequirementNode": {
+      "additionalProperties": false,
+      "properties": {
+        "expectation_basis": {
+          "default": "specification",
+          "enum": [
+            "specification",
+            "implementation"
+          ],
+          "title": "Expectation Basis",
+          "type": "string"
+        },
+        "execution_scope": {
+          "default": "http",
+          "enum": [
+            "http",
+            "browser",
+            "unit",
+            "dependency",
+            "load"
+          ],
+          "title": "Execution Scope",
+          "type": "string"
+        },
+        "scope_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scope Reason"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "acceptance_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Acceptance Criteria",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "acceptance_criteria",
+        "evidence"
+      ],
+      "title": "RequirementNode",
+      "type": "object"
+    },
+    "RiskNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "requirement_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Requirement Ids",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "severity",
+        "requirement_ids",
+        "evidence"
+      ],
+      "title": "RiskNode",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "requirements": {
+      "items": {
+        "$ref": "#/$defs/RequirementNode"
+      },
+      "minItems": 1,
+      "title": "Requirements",
+      "type": "array"
+    },
+    "features": {
+      "items": {
+        "$ref": "#/$defs/FeatureNode"
+      },
+      "title": "Features",
+      "type": "array"
+    },
+    "risks": {
+      "items": {
+        "$ref": "#/$defs/RiskNode"
+      },
+      "title": "Risks",
+      "type": "array"
+    },
+    "dependencies": {
+      "items": {
+        "$ref": "#/$defs/DependencyNode"
+      },
+      "title": "Dependencies",
+      "type": "array"
+    },
+    "open_questions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Open Questions",
+      "type": "array"
+    },
+    "blocking_questions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Questions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "requirements",
+    "features",
+    "risks",
+    "dependencies",
+    "open_questions"
+  ],
+  "title": "KnowledgeModel",
+  "type": "object"
+}

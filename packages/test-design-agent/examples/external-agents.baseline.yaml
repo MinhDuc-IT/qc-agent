@@ -1,0 +1,11 @@
+agents:
+  - agent_id: approved-baseline-worker
+    name: Approved Baseline HTTP Worker
+    version: 0.2.0
+    capabilities: [baseline.http]
+    supported_targets: [http_service]
+    transport: http
+    endpoint: http://127.0.0.1:8105
+    auth_secret_ref: secret://TDA_QC_TOKEN
+    timeout_seconds: 180
+    fallback_to_tools: false

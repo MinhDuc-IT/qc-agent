@@ -1,0 +1,8 @@
+version: '1'
+quality:
+  baseline:
+    http:
+      enabled: true
+      parameters:
+        # Replace with an approved v2 baseline version (20 hexadecimal characters).
+        baseline_version: replace_with_approved_version

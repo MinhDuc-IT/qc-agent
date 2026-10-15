@@ -1,0 +1,441 @@
+{
+  "$defs": {
+    "AiRubric": {
+      "additionalProperties": false,
+      "properties": {
+        "rubric": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Rubric",
+          "type": "string"
+        },
+        "response_pointer": {
+          "title": "Response Pointer",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "rubric",
+        "response_pointer",
+        "evidence"
+      ],
+      "title": "AiRubric",
+      "type": "object"
+    },
+    "BrowserAction": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "goto",
+            "fill",
+            "click",
+            "select",
+            "check",
+            "observe"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "selector": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selector"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "BrowserAction",
+      "type": "object"
+    },
+    "BrowserPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/BrowserAction"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Actions",
+          "type": "array"
+        },
+        "auth": {
+          "default": "none",
+          "enum": [
+            "none",
+            "bearer_env"
+          ],
+          "title": "Auth",
+          "type": "string"
+        }
+      },
+      "required": [
+        "actions"
+      ],
+      "title": "BrowserPlan",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "minLength": 1,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "quote"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "GeneratedCase": {
+      "additionalProperties": false,
+      "properties": {
+        "runner": {
+          "default": "http",
+          "enum": [
+            "http",
+            "unit",
+            "browser",
+            "k6",
+            "ai"
+          ],
+          "title": "Runner",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "scenario_id": {
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "functional",
+            "integration",
+            "security",
+            "performance",
+            "ai_evaluation"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/HttpRequest"
+          },
+          "maxItems": 10,
+          "title": "Steps",
+          "type": "array"
+        },
+        "cleanup": {
+          "items": {
+            "$ref": "#/$defs/HttpRequest"
+          },
+          "maxItems": 5,
+          "title": "Cleanup",
+          "type": "array"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On",
+          "type": "array"
+        },
+        "repetitions": {
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Repetitions",
+          "type": "integer"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/UnitCall"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "browser": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BrowserPlan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "load": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LoadPlan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "grading": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AiRubric"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "scenario_id",
+        "title",
+        "kind",
+        "steps",
+        "cleanup",
+        "depends_on",
+        "repetitions",
+        "notes"
+      ],
+      "title": "GeneratedCase",
+      "type": "object"
+    },
+    "HttpRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "enum": [
+            "GET",
+            "HEAD",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "query": {
+          "items": {
+            "$ref": "#/$defs/Parameter"
+          },
+          "title": "Query",
+          "type": "array"
+        },
+        "body_json": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Body Json"
+        },
+        "auth": {
+          "enum": [
+            "none",
+            "bearer_env"
+          ],
+          "title": "Auth",
+          "type": "string"
+        }
+      },
+      "required": [
+        "method",
+        "path",
+        "query",
+        "body_json",
+        "auth"
+      ],
+      "title": "HttpRequest",
+      "type": "object"
+    },
+    "LoadPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "vus": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Vus",
+          "type": "integer"
+        },
+        "duration_seconds": {
+          "maximum": 15,
+          "minimum": 1,
+          "title": "Duration Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "vus",
+        "duration_seconds"
+      ],
+      "title": "LoadPlan",
+      "type": "object"
+    },
+    "Parameter": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "title": "Parameter",
+      "type": "object"
+    },
+    "UnitCall": {
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "enum": [
+            "python",
+            "javascript"
+          ],
+          "title": "Language",
+          "type": "string"
+        },
+        "module_path": {
+          "title": "Module Path",
+          "type": "string"
+        },
+        "function": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$",
+          "title": "Function",
+          "type": "string"
+        },
+        "args_json": {
+          "title": "Args Json",
+          "type": "string"
+        },
+        "kwargs_json": {
+          "title": "Kwargs Json",
+          "type": "string"
+        }
+      },
+      "required": [
+        "language",
+        "module_path",
+        "function",
+        "args_json",
+        "kwargs_json"
+      ],
+      "title": "UnitCall",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/GeneratedCase"
+      },
+      "title": "Cases",
+      "type": "array"
+    },
+    "open_questions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Open Questions",
+      "type": "array"
+    },
+    "blocking_questions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Blocking Questions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "cases",
+    "open_questions"
+  ],
+  "title": "GeneratedBatch",
+  "type": "object"
+}
