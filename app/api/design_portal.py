@@ -150,7 +150,7 @@ def create_design_router(settings, store, onboarding, github, browser_auth):
                         stage = event.get("stage", "")
                         if stage in {"sources", "analysis", "analysis.correction", "planning", "planning.correction",
                                      "oracle", "repair", "critic", "critic.correction", "coverage", "workflow"} or \
-                                stage.startswith(('flow.','automation.')) or stage in {"generation.functional", "generation.integration", "generation.security", "generation.performance", "generation.ai_evaluation"}:
+                                stage.startswith(('flow.','automation.','artifacts.')) or stage in {"generation.functional", "generation.integration", "generation.security", "generation.performance", "generation.stress", "generation.ai_evaluation"}:
                             progress = {"stage": stage, "status": event.get("status")}
                             if isinstance(event.get('details',{}).get('call'),int):progress['calls_used']=event['details']['call']
                             break

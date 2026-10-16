@@ -24,6 +24,9 @@ def publish_workspace(settings,workspace,case_ids,actor,reason,acknowledge_gaps,
         if any(preparation_state(workspace,c)!='ready' for c in cases):
             raise ValueError('Chỉ áp dụng cho QC các cases có executable và mapping đã xác nhận cho revision hiện tại. Cases cần điều kiện hoặc thủ công phải nằm ngoài phạm vi áp dụng.')
     if any(issue.severity=='blocker' and (not issue.case_ids or set(issue.case_ids)&selected) for issue in workspace.findings):raise ValueError('Case được chọn còn blocker.')
+    if activate_qc and any(c.id in workspace.worker_artifacts or (workspace.bindings.get(c.id) and workspace.bindings[c.id].worker!='auto') for c in cases):
+        from .artifact_baselines import publish_artifacts
+        return publish_artifacts(settings,workspace,case_ids,actor,reason,acknowledge_gaps)
     coverage=coverage_for(workspace,cases)
     if (coverage['missing_criteria'] or coverage['missing_techniques']) and not acknowledge_gaps:raise ValueError('Còn coverage gap. Xác nhận phạm vi publish và ghi lý do để tiếp tục.')
     executable=[];binding_exclusions=[]

@@ -12,6 +12,34 @@ class ManagedBaselineRuntime:
         self.store, self.root = store, root.resolve()
         self.settings=settings
 
+    def execute_generated(self,task,project,workspace,external_runtime=None):
+        try:
+            parameters=task.parameters;registered=self.store.get_project(parameters.get('managed_project_id'))
+            baseline=self.store.get_baseline(registered.project_id,parameters.get('baseline_version')) if registered else None
+            if not registered or not registered.enabled or not baseline or baseline.state!='approved' or baseline.execution_kind!='worker_artifacts':raise ValueError('Approved artifact baseline unavailable')
+            if registered.installation_id!=parameters.get('installation_id') or registered.repository.full_name!=parameters.get('repository'):raise ValueError('Artifact installation/repository mismatch')
+            directory=Path(baseline.baseline_dir).resolve()
+            if directory.parent!=self.root/'projects'/registered.project_id/'baselines' or directory.name!=baseline.version:raise ValueError('Artifact storage boundary mismatch')
+            from .artifact_baselines import load_bundle
+            from ..execution.pytest_environment import run_artifacts
+            bindings,plans=load_bundle(directory,baseline.version);results=[];groups={}
+            for binding in bindings:groups.setdefault(binding.profile.model_dump_json(),[]).append(binding)
+            for group in groups.values():results.append(run_artifacts(group,workspace,self.settings,task.run_id))
+            if plans:
+                from ..execution.generated_plans import run_plans
+                results.append(run_plans(plans,workspace,self.settings,task,registered,self.root,external_runtime))
+            rows=[row for r in results for row in r.summary.get('results',[])]
+            previous={b.case_id:b.preflight.get('status') for b in bindings}
+            for row in rows:
+                old=previous.get(row['case_id']);now=row['status']
+                row['comparison']='not_comparable' if old is None or now=='blocked' else 'new_failure' if old=='pass' and now=='defect' else 'baseline_already_failed' if old=='defect' and now=='defect' else 'resolved_failure' if old=='defect' and now=='pass' else 'unchanged_pass' if now=='pass' else 'unclassified'
+            return WorkerResult(task_id=task.task_id,run_id=task.run_id,capability=task.capability,worker_id='generated-suite' if plans else 'python-pytest-generated',worker_kind='tool',implementation='reviewed-plan-v1' if plans else 'pytest',
+                execution_status='completed' if all(r.execution_status=='completed' for r in results) else 'failed',
+                verdict='unknown' if any(r.verdict=='unknown' for r in results) else 'fail' if any(r.verdict=='fail' for r in results) else 'pass',
+                findings=[f for r in results for f in r.findings],summary={'baseline_version':baseline.version,'source':'generated','results':rows},output='\n'.join(r.output for r in results))
+        except Exception as error:
+            return WorkerResult(task_id=task.task_id,run_id=task.run_id,capability=task.capability,worker_id='python-pytest-generated',worker_kind='tool',implementation='pytest',execution_status='failed',verdict='unknown',summary={'reason':str(error)},output='Generated pytest execution unavailable')
+
     def execute(self, task, project, workspace):
         builder=None
         parameters = task.parameters

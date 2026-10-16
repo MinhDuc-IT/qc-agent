@@ -13,7 +13,7 @@ from pydantic import BaseModel,ConfigDict,Field
 class WorkspaceMutation(BaseModel):
     model_config=ConfigDict(extra='forbid')
     version:int=Field(ge=1)
-    action:Literal['save_case','approve_case','retire_case','restore_case','resolve_finding','save_binding','validate_binding','save_reusable_step','apply_proposal','dismiss_proposal','save_requirement']
+    action:Literal['save_case','approve_case','retire_case','restore_case','resolve_finding','save_binding','validate_binding','validate_artifact','save_reusable_step','apply_proposal','dismiss_proposal','save_requirement']
     case_id:str|None=None
     case_data:dict|None=None
     binding:dict|None=None
@@ -28,10 +28,16 @@ class WorkspaceMutation(BaseModel):
 class WorkspaceJobRequest(BaseModel):
     model_config=ConfigDict(extra='forbid')
     version:int=Field(ge=1)
-    action:Literal['supplement','regression','update_sources','ai_edit','review','bind']
+    action:Literal['supplement','regression','update_sources','ai_edit','review','bind','enable_qc']
     feedback:str=Field(default='',max_length=8000)
     case_ids:list[str]=Field(default_factory=list,max_length=50)
     module_ids:list[str]=Field(default_factory=list,max_length=30)
+
+
+class WorkspaceEnableRequest(WorkspaceJobRequest):
+    action:Literal['enable_qc']='enable_qc'
+    reason:str=Field(min_length=1,max_length=8000)
+    acknowledge_gaps:bool=False
 
 
 class WorkspacePublishRequest(BaseModel):
@@ -191,6 +197,15 @@ def create_workspace_router(settings,store,session,csrf,authorized,artifact_path
                 if not issue or not reason:raise ValueError('Chọn finding và ghi quyết định review.')
                 if issue.category in ('evidence','structure') and issue.severity=='blocker':raise ValueError('Cần sửa nội dung/source; không thể bỏ qua lỗi evidence hoặc schema.')
                 workspace.findings=[item for item in workspace.findings if item.id!=issue.id]
+            elif body.action=='validate_artifact':
+                from tda.application.worker_artifacts import artifact_issues
+                artifact=workspace.worker_artifacts.get(case.id) if case else None
+                if not artifact or case.status!='approved' or not reason:raise ValueError('Chọn artifact của case đã duyệt và ghi lý do review.')
+                issues=artifact_issues(case,artifact)+artifact.validation_issues
+                if issues:raise ValueError('; '.join(issues))
+                if artifact.preflight.get('status') not in ('pass','defect'):raise ValueError('Artifact chưa chạy được preflight; xử lý profile/fixtures/runtime và chuẩn bị lại.')
+                artifact.state='validated';artifact.reviewer=identity.login
+                workspace.automation_preparation[case.id].update(status='ready',confirmed_by=identity.login,confirmation=reason)
             elif body.action in ('save_binding','validate_binding'):
                 if not case or case.status=='retired':raise ValueError('Không tìm thấy case để gắn automation.')
                 binding=AutomationBinding.model_validate(body.binding) if body.action=='save_binding' else workspace.bindings.get(case.id)
@@ -200,11 +215,12 @@ def create_workspace_router(settings,store,session,csrf,authorized,artifact_path
                 if not binding or binding.case_id!=case.id or binding.case_revision!=case.revision or binding.design_sha256!=design_digest(case):raise ValueError('Binding không khớp case revision hiện tại.')
                 if binding.executable.requirement_ids!=case.requirement_ids or binding.executable.kind!=case.kind:raise ValueError('Binding phải giữ requirement IDs và loại testing của design.')
                 report=TestValidator().validate([binding.executable],workspace.sources)
-                binding.validation_issues=[issue.message for issue in report.issues]
+                from tda.application.worker_routes import route_issues
+                binding.validation_issues=[issue.message for issue in report.issues]+route_issues(binding)
                 binding.state='bound';binding.reviewer=None
                 if body.action=='validate_binding':
                     if case.status!='approved':raise ValueError('Duyệt test case trước khi xác nhận mapping cho QC.')
-                    if report.issues or not reason:raise ValueError('Binding còn lỗi hoặc chưa xác nhận mapping expected results.')
+                    if binding.validation_issues or not reason:raise ValueError('Binding còn lỗi hoặc chưa xác nhận mapping expected results.')
                     issues=binding_design_issues(case,binding.executable)
                     if case.id in workspace.automation_preparation:
                         from tda.application.automation import mapping_issues
@@ -238,14 +254,34 @@ def create_workspace_router(settings,store,session,csrf,authorized,artifact_path
     @router.post('/api/v1/projects/{project_id}/workspace/jobs',status_code=202)
     async def job(project_id:str,request:Request,body:WorkspaceJobRequest):
         identity=session(request);csrf(request,identity);await authorized(project_id,identity,fresh=True)
-        if body.action=='bind':
+        if body.action in ('bind','enable_qc'):
             workspace=workspace_for(project_id)
             selected=[c for c in workspace.cases if c.id in set(body.case_ids)]
             if not selected or len(selected)!=len(set(body.case_ids)) or any(c.status!='approved' for c in selected):
                 raise HTTPException(status_code=409,detail='Chọn cases đã duyệt để chuẩn bị cho QC.')
+        if body.action=='enable_qc':raise HTTPException(status_code=409,detail='Dùng endpoint enable-qc để xác nhận phạm vi baseline.')
         if not settings.agent_qc_tda_enabled:raise HTTPException(status_code=409,detail='TDA đang tắt.')
         try:
             result=store.enqueue_workspace(project_id,body.version,body.action,identity.login,body.feedback,body.case_ids,body.module_ids)
+            return {'job_id':result.job_id,'status':'queued'}
+        except ValueError as error:raise HTTPException(status_code=409,detail=str(error)) from None
+
+    @router.post('/api/v1/projects/{project_id}/workspace/enable-qc',status_code=202)
+    async def enable_qc(project_id:str,request:Request,body:WorkspaceEnableRequest):
+        identity=session(request);csrf(request,identity);await authorized(project_id,identity,fresh=True)
+        if not settings.agent_qc_tda_enabled:raise HTTPException(status_code=409,detail='TDA đang tắt.')
+        workspace=workspace_for(project_id)
+        selected=[c for c in workspace.cases if c.id in set(body.case_ids)]
+        if not selected or len(selected)!=len(body.case_ids) or any(c.status!='approved' for c in selected):
+            raise HTTPException(status_code=409,detail='Chọn các cases đã duyệt để bật cho QC.')
+        if not body.acknowledge_gaps:
+            from tda.application.workspace import coverage_for
+            coverage=coverage_for(workspace,selected)
+            if coverage['missing_criteria'] or coverage['missing_techniques']:
+                raise HTTPException(status_code=409,detail='Phạm vi đã chọn còn coverage gap. Xác nhận áp dụng một phần bộ test trước khi bật cho QC.')
+        try:
+            result=store.enqueue_workspace(project_id,body.version,'enable_qc',identity.login,body.feedback,body.case_ids,body.module_ids,
+                activation={'reason':body.reason,'acknowledge_gaps':body.acknowledge_gaps})
             return {'job_id':result.job_id,'status':'queued'}
         except ValueError as error:raise HTTPException(status_code=409,detail=str(error)) from None
 

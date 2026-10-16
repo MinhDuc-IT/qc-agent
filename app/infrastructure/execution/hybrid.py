@@ -14,11 +14,14 @@ class HybridWorkerRuntime:
         self.managed_baselines = managed_baselines
 
     def execute(self, task: WorkerTask, project: ProjectDescriptor, workspace: Path) -> WorkerResult:
+        if self.managed_baselines is not None and task.parameters.get('generated_artifact'):
+            return self.managed_baselines.execute_generated(task,project,workspace,self.external_agents)
         if self.managed_baselines is not None and task.capability in {"baseline.http", "baseline.repository"} and task.parameters.get("managed_project_id"):
             return self.managed_baselines.execute(task, project, workspace)
         if task.execution_preference != "tool":
             external_result = self.external_agents.execute(task, project, workspace)
             if external_result is not None:
+                if external_result.summary.get('configuration_blocked'):return external_result
                 if (external_result.execution_status == "completed"
                         or task.execution_preference == "external_agent"):
                     return external_result

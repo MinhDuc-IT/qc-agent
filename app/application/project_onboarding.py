@@ -65,6 +65,12 @@ class ManagedBaselineBinding:
             return
         needs_service=True
         baseline=self.store.get_baseline(project.project_id,project.active_baseline) if project.active_baseline else None
+        if baseline and baseline.execution_kind=='worker_artifacts':
+            from ..infrastructure.test_design.artifact_baselines import load_bundle
+            try:
+                _,plans=load_bundle(baseline.baseline_dir,baseline.version)
+                needs_service=any(p.executable.runner!='unit' for p in plans)
+            except (OSError,ValueError):needs_service=False
         if baseline:
             try:
                 cases=json.loads((Path(baseline.baseline_dir)/'cases/cases.json').read_text(encoding='utf-8'))
@@ -93,6 +99,22 @@ class ManagedBaselineBinding:
         selected = projects[0]
         needs_service=True
         baseline=self.store.get_baseline(binding['project_id'],binding['version'])
+        if baseline and baseline.execution_kind=='worker_artifacts':
+            from ..infrastructure.test_design.artifact_baselines import load_bundle
+            try:_,plans=load_bundle(baseline.baseline_dir,baseline.version)
+            except (OSError,ValueError):
+                run.results.append(WorkerResult(task_id='baseline-integrity-'+run.run_id,run_id=run.run_id,capability='baseline.repository',
+                    worker_id='generated-suite',worker_kind='tool',execution_status='failed',verdict='unknown',
+                    output='Artifact baseline không hợp lệ hoặc không đọc được; existing tests vẫn được giữ.'))
+                return
+            needs_service=any(p.executable.runner!='unit' for p in plans)
+            run.plan.tasks=[task for task in run.plan.tasks if task.capability not in ('baseline.http','baseline.repository') and not task.parameters.get('generated_artifact')]
+            selected=next((p for p in projects if p.language=='python'),selected)
+            run.plan.tasks.append(WorkerTask(run_id=run.run_id,capability='baseline.http' if needs_service else 'unit.run',objective='Run approved generated artifacts and reviewed plans',
+                target=TaskTarget(type='http_service' if needs_service else 'repository',project_id=selected.id),execution_preference='tool',timeout_seconds=600,
+                parameters={'managed_project_id':binding['project_id'],'baseline_version':binding['version'],'generated_artifact':True,
+                    'installation_id':run.trigger_context.installation.id,'repository':run.trigger_context.repository.full_name,'allow_mutations':binding['allow_mutations'],'trigger_type':run.trigger_context.trigger.event}))
+            return
         if baseline:
             try:
                 cases=json.loads((Path(baseline.baseline_dir)/'cases/cases.json').read_text(encoding='utf-8'))

@@ -53,12 +53,25 @@ class ManagedDesignEngine:
         agent=self.agent_factory(artifacts) if self.agent_factory else OpenAIStructuredAgent(
             self.settings.tda_openai_api_key,self.settings.agent_qc_tda_model or self.settings.openai_model,artifacts,
             max_calls=self.settings.agent_qc_tda_max_calls,max_output_tokens=self.settings.agent_qc_tda_max_output_tokens,
-            reasoning_effort=self.settings.agent_qc_tda_reasoning_effort)
+            reasoning_effort=self.settings.agent_qc_tda_reasoning_effort,timeout_seconds=self.settings.agent_qc_tda_timeout_seconds,
+            max_input_chars=self.settings.agent_qc_tda_max_input_chars)
         def progress(message):
             if self.stopped(job):return
             self.store.update_job_project(job,state='designing',message=message)
-        if action=='bind':
+        if action in ('bind','enable_qc'):
             if not previous:raise ValueError('Chưa có bộ test để chuẩn bị cho QC.')
+            case_ids=(job.workspace_request or {}).get('case_ids',[])
+            if self.settings.agent_qc_generated_pytest_enabled:
+                from .execution_profiles import discover_profiles,pytest_case_ids
+                profiles=discover_profiles(tools)
+                native_ids=pytest_case_ids(previous,case_ids,profiles)
+                if native_ids:
+                    from .pytest_builder import PytestArtifactBuilder
+                    previous=PytestArtifactBuilder(agent,tools,artifacts,self.settings,profiles,stopped=lambda:self.stopped(job),progress=progress,reuse_unavailable=action=='enable_qc').run(previous,native_ids)
+                    case_ids=[identifier for identifier in case_ids if identifier not in native_ids]
+                    if not case_ids:
+                        previous.generation_job_id=job.job_id
+                        return previous
             from tda.application.automation import AutomationBuilder
             if not project.target_profile:
                 from .discovery import SourceDiscovery
@@ -72,7 +85,7 @@ class ManagedDesignEngine:
             environment={'mutations_allowed':project.allow_mutations,'target_profile':project.target_profile,
                 'test_isolation':self.settings.agent_qc_test_isolation,'browser_channel':self.settings.agent_qc_browser_channel,
                 'credentials_available':bool(__import__('os').getenv(f'PROJECT_{project.installation_id}_{project.repository_id}_API_TOKEN'))}
-            updated=AutomationBuilder(agent,tools,artifacts,stopped=lambda:self.stopped(job),progress=progress,environment=environment).run(previous,(job.workspace_request or {}).get('case_ids',[]))
+            updated=AutomationBuilder(agent,tools,artifacts,stopped=lambda:self.stopped(job),progress=progress,environment=environment).run(previous,case_ids)
             updated.generation_job_id=job.job_id
             return updated
         engine=FlowDesignAgent(agent,tools,artifacts,max_turns=self.settings.agent_qc_tda_max_inquiry_turns,
@@ -110,7 +123,7 @@ class ManagedDesignEngine:
             if request and request['version']!=expected:raise ValueError('Workspace đã thay đổi trước khi job bắt đầu.')
             metadata=await self.github.describe_repository(project.installation_id,project.repository.full_name)
             job.revision=metadata['sha']
-            if request.get('action') in ('review','ai_edit','bind') and previous and previous.source_revision!=job.revision:
+            if request.get('action') in ('review','ai_edit','bind','enable_qc') and previous and previous.source_revision!=job.revision:
                 raise ValueError('Source thay đổi; dùng Cập nhật theo nguồn thay đổi trước.')
             self.store.save_job(job)
             run=QCRun(run_id='tda_'+job.job_id,trigger_context=TriggerContext(
@@ -126,17 +139,40 @@ class ManagedDesignEngine:
             updated=await asyncio.to_thread(self.run,job,project,root,previous,artifacts)
             if self.stopped(job):job.status='superseded';return
             updated=self.store.save_workspace(updated,expected,request.get('actor','agent'),request.get('action','flow_generate'),job_id=job.job_id)
-            partial=updated.automation_job_diagnostic if request.get('action')=='bind' else updated.generation_diagnostic or any(m['status'] in ('pending','partial','investigating') for m in updated.flow_modules)
+            partial=updated.automation_job_diagnostic if request.get('action') in ('bind','enable_qc') else updated.generation_diagnostic or any(m['status'] in ('pending','partial','investigating') for m in updated.flow_modules)
             job.status='partial' if partial else 'completed'
             message=f'Đã lưu {len(updated.cases)} test cases theo {len(updated.flow_modules)} modules. '
             message+='Draft chưa hoàn tất; xem module và phần còn thiếu.' if partial else 'Review expected results và đối chiếu tài liệu/code trước khi publish.'
-            if request.get('action')=='bind':
+            if request.get('action') in ('bind','enable_qc'):
                 from tda.application.automation import preparation_state
                 states=[preparation_state(updated,c) for c in updated.cases if c.id in request.get('case_ids',[])]
                 message=f'Chuẩn bị cho QC: {states.count("needs_review")} cases chờ xác nhận mapping; {states.count("needs_setup")} cần bổ sung điều kiện; {states.count("manual")} kiểm tra thủ công.'
                 if partial:message+=' Lượt chuẩn bị chưa hoàn tất; cases đã xử lý được giữ.'
+            if request.get('action')=='enable_qc':
+                from .enable_qc import activation_candidates
+                from .workspace_publish import publish_workspace
+                options=request.get('activation') or {}
+                if not options.get('reason'):raise ValueError('Missing explicit activation request')
+                ready,blocked=activation_candidates(updated,request.get('case_ids',[]),request['actor'])
+                artifacts.write('activation_report.json',{'ready_case_ids':ready,'blocked_cases':blocked,'activated':False})
+                if ready and (not blocked or options.get('acknowledge_gaps')):
+                    publication,baseline=publish_workspace(self.settings,updated,ready,request['actor'],options['reason'],options.get('acknowledge_gaps',False),activate_qc=True)
+                    publication['automation_exclusions']=blocked
+                    updated=self.store.save_publication(updated,publication,request['actor'],baseline,activation_job_id=job.job_id)
+                    job.baseline_version=baseline.version
+                    job.status='partial' if blocked else 'completed'
+                    message=f'Đã bật {len(ready)} cases cho QC; {len(blocked)} cases bị chặn. Mở case để xem lý do.'
+                    artifacts.write('activation_report.json',{'ready_case_ids':ready,'blocked_cases':blocked,'activated':True,'baseline':baseline.version})
+                    artifacts.write('test_workspace.json',updated.model_dump())
+                    self.store.update_job_project(job,state='active',message=message)
+                else:
+                    job.status='partial'
+                    self.store.update_job_project(job,state='needs_changes',message=f'Chưa bật cho QC: {len(blocked)} cases bị chặn. Baseline đang dùng được giữ nguyên.')
+                return
             self.store.update_job_project(job,state='needs_changes' if partial else 'ready_for_review',message=message)
         except Exception as error:
+            import logging
+            logging.getLogger(__name__).exception('Test design job failed: %s',job.job_id)
             job.status='cancelled' if self.stopped(job) else 'failed';job.error=type(error).__name__
             from tda.application.ports import AgentFailure
             job.error_message=('LLM chưa hoàn tất: '+error.error_kind) if isinstance(error,AgentFailure) else str(error) if isinstance(error,ValueError) else 'Job chưa hoàn tất; xem artifact diagnostic.'

@@ -58,7 +58,7 @@ class WorkspaceStoreMixin:
             self._save_workspace(db,workspace,actor,action)
             return workspace
 
-    def enqueue_workspace(self,project_id,version,action,actor,feedback='',case_ids=None,module_ids=None):
+    def enqueue_workspace(self,project_id,version,action,actor,feedback='',case_ids=None,module_ids=None,*,activation=None):
         from ...domain.test_design import DesignJob,DesignProject
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
@@ -71,9 +71,10 @@ class WorkspaceStoreMixin:
             if not set(case_ids or [])<=known:raise ValueError('Unknown selected cases')
             known_modules={m['scope']['id'] for m in current.get('flow_modules',[])}
             if not set(module_ids or [])<=known_modules:raise ValueError('Unknown selected modules')
-            if action in ('ai_edit','bind') and not case_ids:raise ValueError('Select at least one case')
+            if action in ('ai_edit','bind','enable_qc') and not case_ids:raise ValueError('Select at least one case')
             job=DesignJob(project_id=project_id,reason='workspace_'+action,revision=None if action in ('update_sources','regression') else current['source_revision'],
                 workspace_request={'version':version,'action':action,'actor':actor,'feedback':feedback,'case_ids':case_ids or [],'module_ids':module_ids or []})
+            if activation:job.workspace_request['activation']=activation
             db.execute('INSERT INTO design_jobs VALUES (?,?,?,?,?)',(job.job_id,project_id,'queued',job.model_dump_json(),time.time_ns()))
             project.current_job_id=job.job_id;project.state='queued';project.message='Đang chờ cập nhật Test Design Workspace.'
             self._save_project(db,project)
@@ -81,16 +82,25 @@ class WorkspaceStoreMixin:
                 (project_id,'workspace_job',actor,json.dumps(job.workspace_request)))
             return job
 
-    def save_publication(self,workspace,publication,actor,baseline=None):
+    def save_publication(self,workspace,publication,actor,baseline=None,*,activation_job_id=None):
         from ...domain.test_design import DesignProject,DesignJob
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             row=db.execute('SELECT version FROM design_workspaces WHERE project_id=?',(workspace.project_id,)).fetchone()
             if not row or row[0]!=workspace.version:raise ValueError('Workspace changed during publication')
-            if db.execute("SELECT 1 FROM design_jobs WHERE project_id=? AND status IN ('queued','running') LIMIT 1",(workspace.project_id,)).fetchone():raise ValueError('Design job is processing')
+            active=db.execute("SELECT job_id FROM design_jobs WHERE project_id=? AND status IN ('queued','running')",(workspace.project_id,)).fetchall()
+            if any(row[0]!=activation_job_id for row in active):raise ValueError('Design job is processing')
+            if activation_job_id:
+                jobrow=db.execute('SELECT payload,status FROM design_jobs WHERE job_id=?',(activation_job_id,)).fetchone()
+                if not jobrow or jobrow[1]!='running':raise ValueError('Activation job is unavailable')
+                request=json.loads(jobrow[0]).get('workspace_request') or {}
+                if request.get('action')!='enable_qc' or not request.get('activation'):raise ValueError('Activation authorization is missing')
+                if not set(publication['selected_case_ids'])<=set(request.get('case_ids',[])):raise ValueError('Activation scope differs from request')
+                if publication.get('acknowledged_gaps')!=request['activation'].get('acknowledge_gaps',False):raise ValueError('Activation consent differs from request')
             row=db.execute('SELECT payload FROM design_projects WHERE project_id=?',(workspace.project_id,)).fetchone()
             project=DesignProject.model_validate_json(row[0])
             if not project.enabled:raise ValueError('Project disabled')
+            if activation_job_id and project.current_job_id!=activation_job_id:raise ValueError('Activation job superseded')
             db.execute('INSERT INTO design_workspace_publications VALUES (?,?,?,?,?)',
                 (workspace.project_id,publication['version'],workspace.version,json.dumps(publication,ensure_ascii=False),time.time()))
             workspace.published_version=publication['version'];workspace.published_workspace_version=workspace.version
@@ -101,7 +111,7 @@ class WorkspaceStoreMixin:
                 job=DesignJob(job_id=baseline.job_id,project_id=project.project_id,reason='workspace_publish',status='completed',revision=baseline.source_revision,baseline_version=baseline.version)
                 db.execute('INSERT INTO design_jobs VALUES (?,?,?,?,?)',(job.job_id,job.project_id,job.status,job.model_dump_json(),time.time_ns()))
                 db.execute('INSERT INTO design_baselines VALUES (?,?,?,?)',(baseline.project_id,baseline.version,baseline.model_dump_json(),time.time_ns()))
-                project.active_baseline=baseline.version;project.current_job_id=job.job_id;project.state='active';project.message='Đã publish bộ test và cập nhật baseline cho QC.'
+                project.active_baseline=baseline.version;project.current_job_id=activation_job_id or job.job_id;project.state='active';project.message='Đã publish bộ test và cập nhật baseline cho QC.'
                 self._save_project(db,project)
             self._save_workspace(db,workspace,actor,'publish')
             return workspace
