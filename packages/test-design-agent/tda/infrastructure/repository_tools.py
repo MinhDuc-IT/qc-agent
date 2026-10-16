@@ -11,7 +11,7 @@ from ..domain.contracts import SourceDocument,SourceBundle
 class RepositoryTools:
     EXCLUDED={'.git','.venv','venv','node_modules','.aws','.codex','.agents','__pycache__','dist','build','.data'}
     EXTENSIONS={'.py','.js','.ts','.tsx','.jsx','.mjs','.cjs','.go','.java','.cs','.rb','.php','.rs','.vue','.svelte',
-                '.md','.rst','.txt','.json','.yaml','.yml','.toml','.sql','.html','.css','.sh','.feature'}
+                '.md','.rst','.txt','.json','.yaml','.yml','.toml','.ini','.sql','.html','.css','.sh','.feature'}
 
     def __init__(self,root,artifacts,documents=(),max_snapshot_bytes=1000000):
         self.root=Path(root).resolve();self.artifacts=artifacts;self.max_snapshot_bytes=max_snapshot_bytes

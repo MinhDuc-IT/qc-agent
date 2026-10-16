@@ -9,7 +9,7 @@ from ..domain.inventory import InventoryItem,ProjectInventory
 from ..domain.contracts import SourceDocument,SourceBundle
 
 EXCLUDED={'.git','.venv','venv','node_modules','__pycache__','.data','dist','build','.aws','.codex','.agents','.tda-input'}
-EXTENSIONS={'.py','.js','.jsx','.ts','.tsx'}
+EXTENSIONS={'.py','.js','.jsx','.ts','.tsx','.mjs','.cjs'}
 
 
 def identity(path,kind,symbol):

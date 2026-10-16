@@ -89,6 +89,41 @@ def test_budget_exhaustion_preserves_cases_but_never_claims_verified_coverage(pr
     assert w.completeness['gate']=='NEEDS_REVIEW'
 
 
+def test_review_timeout_does_not_stop_other_modules(project):
+    root,doc,artifacts=project
+    class Agent(FakeInvestigator):
+        max_calls=16
+        def propose(self,stage,instructions,context,output):
+            if stage.startswith('flow.review') and context['scope']['id']=='SUM':
+                self.calls.append(stage);raise AgentFailure('timeout',stage=stage,error_kind='timeout')
+            result=super().propose(stage,instructions,context,output)
+            if stage=='flow.survey':result.modules.append(ModuleScope(id='NEXT',title='Other flow',objective='Other addition',entry_paths=['service.py']))
+            module=context.get('module',context.get('scope',{})).get('id')
+            if module=='NEXT':return output.model_validate_json(result.model_dump_json().replace('SUM','NEXT'))
+            return result
+    agent=Agent();workspace=FlowDesignAgent(agent,RepositoryTools(root,artifacts,[doc]),artifacts,max_rounds=1).run('p','sha')
+    modules={m['scope']['id']:m for m in workspace.flow_modules}
+    assert modules['SUM']['status']=='partial'
+    assert modules['NEXT']['status']=='reviewed'
+    assert len(workspace.cases)==2 and agent.calls.count('flow.review.retry')==1
+
+
+def test_resume_timeout_reuses_existing_study_and_cases(project,tmp_path):
+    root,doc,artifacts=project
+    class Timeout(FakeInvestigator):
+        max_calls=12
+        def propose(self,stage,instructions,context,output):
+            if stage.startswith('flow.review'):
+                self.calls.append(stage);raise AgentFailure('timeout',stage=stage,error_kind='timeout')
+            return super().propose(stage,instructions,context,output)
+    previous=FlowDesignAgent(Timeout(),RepositoryTools(root,artifacts,[doc]),artifacts,max_rounds=1).run('p','sha')
+    new_artifacts=LocalArtifactStore(tmp_path/'resumed');agent=FakeInvestigator()
+    updated=FlowDesignAgent(agent,RepositoryTools(root,new_artifacts,[doc]),new_artifacts,max_rounds=1).run('p','sha',previous,'supplement')
+    assert agent.calls==['flow.review']
+    assert updated.cases==previous.cases and updated.flow_modules[0]['status']=='reviewed'
+    assert updated.completeness['metrics']['scenario']['numerator']==1
+
+
 def test_editing_case_invalidates_previous_independent_review(project):
     root,doc,artifacts=project;w=FlowDesignAgent(FakeInvestigator(),RepositoryTools(root,artifacts,[doc]),artifacts).run('p','sha')
     w.cases[0].steps[0].expected_results[0].description='Return 999'

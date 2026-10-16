@@ -10,18 +10,23 @@ class OpenAIStructuredAgent:
     """Bounded Responses API calls. No fallback disguises a failed LLM call."""
 
     def __init__(self, api_key, model, store: ArtifactStore, max_calls=24, max_output_tokens=8000, client=None,
-                 reasoning_effort=None):
+                 reasoning_effort=None,timeout_seconds=180,max_input_chars=60000):
         if not api_key or not model:
             raise ValueError("OPENAI_API_KEY and an explicit model are required")
         if client is None:
             from openai import OpenAI
-            client = OpenAI(api_key=api_key, timeout=60, max_retries=0)
+            client = OpenAI(api_key=api_key, timeout=timeout_seconds, max_retries=0)
         self.client, self.model, self.store = client, model, store
         self.max_calls, self.max_output_tokens = max_calls, max_output_tokens
         self.calls = 0
         self.reasoning_effort = reasoning_effort
+        self.max_input_chars=max_input_chars
 
     def propose(self, stage, instructions, context, output):
+        serialized=json.dumps(context,ensure_ascii=False)
+        if stage.startswith('flow.') and len(serialized)>self.max_input_chars:
+            self.store.event(stage,'context_rejected',{'input_chars':len(serialized),'limit_chars':self.max_input_chars})
+            raise AgentFailure('Context budget exceeded; split the scope before calling LLM',stage=stage,error_kind='context_budget')
         if self.calls >= self.max_calls:
             raise AgentFailure("LLM call budget exhausted",stage=stage,error_kind='budget')
         self.calls += 1
@@ -30,7 +35,7 @@ class OpenAIStructuredAgent:
         try:
             response = self.client.responses.parse(
                 model=self.model, instructions=instructions,
-                input=json.dumps(context, ensure_ascii=False), text_format=output,
+                input=serialized, text_format=output,
                 max_output_tokens=self.max_output_tokens, store=False,
                 **({"reasoning": {"effort": self.reasoning_effort}} if self.reasoning_effort else {}),
             )
@@ -66,5 +71,7 @@ class OpenAIStructuredAgent:
             "elapsed_seconds": round(time.monotonic() - started, 3),
             "input_tokens": getattr(usage, "input_tokens", None),
             "output_tokens": getattr(usage, "output_tokens", None),
+            "input_chars":len(serialized),
+            "cached_input_tokens":getattr(getattr(usage,'input_tokens_details',None),'cached_tokens',None),
         })
         return parsed
