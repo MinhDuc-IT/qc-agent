@@ -4,6 +4,7 @@ from pydantic import Field, model_validator, field_validator
 from .contracts import Contract, Evidence, ExecutableCase, KnowledgeModel, SourceBundle, TestKind, Parameter, RequirementNode
 from .inventory import ProjectInventory
 from .completeness import CompletenessPolicy, DesignScenario, SemanticEvaluation
+from .worker_artifacts import WorkerArtifactBinding,ExecutionProfile
 
 
 Technique = Literal['happy_path','negative','boundary_value','equivalence_partitioning',
@@ -108,6 +109,8 @@ class AutomationBinding(Contract):
     reviewer: str | None = None
     validation_issues: list[str] = Field(default_factory=list)
     expected_result_mapping: list[AssertionMapping] = Field(default_factory=list)
+    worker: Literal['auto','hercules','keploy','strix']='auto'
+    worker_parameters: dict = Field(default_factory=dict)
     @model_validator(mode='after')
     def identity(self):
         if self.executable.id!=self.case_id:raise ValueError('Binding case ID mismatch')
@@ -174,9 +177,12 @@ class TestWorkspace(Contract):
     design_method: str = 'legacy'
     investigation_survey: dict = Field(default_factory=dict)
     flow_modules: list[dict] = Field(default_factory=list)
+    document_inventory: dict = Field(default_factory=dict)
     investigation_limitations: list[str] = Field(default_factory=list)
     automation_preparation: dict[str,dict] = Field(default_factory=dict)
     automation_job_diagnostic: dict | None = None
+    execution_profiles: list[ExecutionProfile] = Field(default_factory=list)
+    worker_artifacts: dict[str,WorkerArtifactBinding] = Field(default_factory=dict)
     @field_validator('knowledge',mode='before')
     @classmethod
     def accept_analysis_model(cls,value):

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     github_app_slug: str | None = None
     agent_qc_public_url: str = "http://127.0.0.1:8000"
     agent_qc_tda_enabled: bool = True
+    agent_qc_generated_pytest_enabled: bool = True
     agent_qc_tda_workspace_enabled: bool = True
     agent_qc_tda_max_inquiry_turns: int = Field(default=6,ge=2,le=20)
     agent_qc_tda_max_cases: int = Field(default=100,ge=1,le=200)
@@ -30,6 +31,8 @@ class Settings(BaseSettings):
     tda_openai_api_key: str | None = None
     agent_qc_tda_reasoning_effort: str | None = "low"
     agent_qc_tda_max_calls: int = 24
+    agent_qc_tda_timeout_seconds: int = Field(default=180,ge=10,le=600)
+    agent_qc_tda_max_input_chars: int = Field(default=60000,ge=12000,le=200000)
     agent_qc_tda_max_source_bytes: int = 160000
     agent_qc_data_dir: Path = Path(".data")
     # Runtime clones must live outside the source tree watched by uvicorn --reload.

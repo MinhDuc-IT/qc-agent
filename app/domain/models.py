@@ -246,6 +246,8 @@ class WorkerManifest(BaseModel):
 
 
 class ExternalAgentManifest(BaseModel):
+    enabled: bool = True
+    blocked_reason: str | None = None
     schema_version: str = "1.0"
     agent_id: str
     name: str
@@ -257,6 +259,7 @@ class ExternalAgentManifest(BaseModel):
     # Optional path at which the orchestrator workspace root is mounted in a
     # remote/container worker. The checkout directory name is appended.
     source_root: str | None = None
+    target_host_override: Literal['host.docker.internal'] | None = None
     auth_secret_ref: str | None = None
     timeout_seconds: int = 1800
     fallback_to_tools: bool = True

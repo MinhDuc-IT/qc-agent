@@ -112,3 +112,6 @@ class ModuleResult(Contract):
     notes: str = ''
     diagnostic: str | None = None
     read_paths: list[str] = Field(default_factory=list)
+    investigation_checkpoint: dict | None = None
+    review_checkpoint: dict = Field(default_factory=dict)
+    investigation_feedback: list[dict] = Field(default_factory=list)
