@@ -59,6 +59,11 @@ def preparation_state(workspace,case):
     saved=workspace.automation_preparation.get(case.id,{})
     if case.status!='approved':return 'unapproved'
     if saved and (saved.get('case_revision')!=case.revision or saved.get('design_sha256')!=design_digest(case)):return 'stale'
+    artifact=workspace.worker_artifacts.get(case.id)
+    if artifact:
+        if artifact.case_revision!=case.revision or artifact.design_sha256!=design_digest(case):return 'stale'
+        if artifact.state=='validated' and artifact.reviewer:return 'ready'
+        return saved.get('status','needs_review')
     if binding and binding.case_revision==case.revision and binding.design_sha256==design_digest(case):
         if binding.state=='validated' and binding.reviewer:return 'ready'
         return saved.get('status','needs_review')
@@ -105,7 +110,9 @@ class AutomationBuilder:
         selected=[c for c in w.cases if c.id in set(case_ids)]
         if len(selected)!=len(set(case_ids)) or not selected or any(c.status!='approved' for c in selected):
             raise ValueError('Chỉ chuẩn bị automation cho cases đã duyệt.')
-        for case in selected:w.bindings.pop(case.id,None)
+        for case in selected:
+            w.bindings.pop(case.id,None)
+            w.worker_artifacts.pop(case.id,None)
         for index,case in enumerate(selected):
             if self.stopped():raise AgentFailure('Job stopped',stage='automation',error_kind='cancelled')
             state={'case_revision':case.revision,'design_sha256':design_digest(case),'source_revision':w.source_revision,
