@@ -12,16 +12,18 @@ LANGUAGES = ("python", "javascript", "java", "kotlin", "go", "rust", "dotnet", "
 
 
 def _json_payload(output: str) -> dict[str, Any]:
-    """Extract the final JSON document when a CLI writes diagnostics first."""
+    """Extract scanner JSON even when merged stderr adds a summary afterwards."""
     decoder = json.JSONDecoder()
+    found=None
     for match in re.finditer(r"(?m)^\s*\{", output):
         start = match.end() - 1
         try:
             payload, end = decoder.raw_decode(output[start:])
         except json.JSONDecodeError:
             continue
-        if isinstance(payload, dict) and not output[start + end:].strip():
-            return payload
+        if isinstance(payload, dict) and any(key in payload for key in ('results','Results','SchemaVersion')):
+            found=payload
+    if found is not None:return found
     raise json.JSONDecodeError("No final JSON document found", output, 0)
 
 
@@ -85,7 +87,7 @@ class SemgrepAdapter(JsonSecurityAdapter):
         # reviewed ruleset is shipped with Agent-QC and versioned with the code.
         ruleset = Path(__file__).resolve().parents[4] / "rules" / "semgrep" / "security.yaml"
         return ("semgrep", "scan", "--config", str(ruleset), "--metrics", "off",
-                "--disable-version-check", "--no-git-ignore", "--json", "--error", ".")
+                "--disable-version-check", "--no-git-ignore", "--json", "--quiet", "--error", ".")
 
     def parse_json(self, output: str, cwd: Path | None) -> tuple[list[Finding], dict[str, Any]]:
         payload = _json_payload(output)

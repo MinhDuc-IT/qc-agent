@@ -8,9 +8,11 @@ from .adapters import (
     GitleaksAdapter, SemgrepAdapter, TrivyDependencyAdapter,
 )
 from .contracts import WorkerAdapter
+from .adapters.generated_pytest import GeneratedPytestAdapter
 
 
 DEFAULT_ADAPTERS: tuple[WorkerAdapter, ...] = (
+    GeneratedPytestAdapter(),
     PytestUnitAdapter(), PytestIntegrationAdapter(), NpmTestAdapter(),
     MavenTestAdapter(), GradleTestAdapter(), GoTestAdapter(), CargoTestAdapter(),
     DotnetTestAdapter(), SemgrepAdapter(),

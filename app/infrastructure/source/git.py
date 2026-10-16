@@ -2,6 +2,8 @@ import asyncio
 import base64
 import shutil
 import subprocess
+import os
+import stat
 from pathlib import Path
 from typing import Protocol
 
@@ -29,7 +31,7 @@ class GitRepositoryManager:
         # exclusively to this run, so discard it before performing a fresh,
         # immutable checkout of head_sha.
         if workspace.exists():
-            await asyncio.to_thread(shutil.rmtree, workspace)
+            await asyncio.to_thread(self.cleanup, workspace)
         ctx = run.trigger_context
         clone_url = ctx.repository.clone_url
         clone_args = ["git"]
@@ -57,5 +59,11 @@ class GitRepositoryManager:
         return workspace
 
     def cleanup(self, workspace: Path) -> None:
+        workspace=workspace.resolve()
+        if workspace.parent!=self.workspace_root.resolve():raise ValueError('Cleanup target escapes workspace root')
         if workspace.exists():
-            shutil.rmtree(workspace)
+            def writable_retry(function,path,error):
+                if not isinstance(error,PermissionError) or not Path(path).resolve().is_relative_to(workspace):raise error
+                os.chmod(path,stat.S_IREAD|stat.S_IWRITE)
+                function(path)
+            shutil.rmtree(workspace,onexc=writable_retry)

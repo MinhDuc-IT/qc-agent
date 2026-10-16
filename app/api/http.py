@@ -68,8 +68,9 @@ def _execution_backend():
     return DockerExecutionBackend(images)
 
 
+from ..infrastructure.execution.prepared_tools import PreparedToolRuntime
 workers = HybridWorkerRuntime(
-    external_agent_runtime, RegisteredWorkerRuntime(backend=_execution_backend()),
+    external_agent_runtime, PreparedToolRuntime(settings,RegisteredWorkerRuntime(backend=_execution_backend())),
     ManagedBaselineRuntime(design_store, settings.agent_qc_tda_dir, settings) if settings.agent_qc_tda_enabled else None,
 )
 if settings.agent_qc_agent_enabled and settings.openai_api_key:

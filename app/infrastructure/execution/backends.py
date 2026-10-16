@@ -1,6 +1,7 @@
 import os
 import signal
 import subprocess
+import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -83,6 +84,8 @@ class DockerExecutionBackend:
         self.memory_limit = memory_limit
         self.pids_limit = pids_limit
 
+    def available(self,executable):return bool(self.images.get(executable)) and shutil.which('docker') is not None
+
     def run(self, invocation: Invocation, timeout_seconds: int,
             environment: Mapping[str, str]) -> ExecutionOutput:
         executable = Path(invocation.argv[0]).name
@@ -95,11 +98,20 @@ class DockerExecutionBackend:
             "docker", "run", "--rm", "--network", "none", "--read-only",
             "--cpus", self.cpu_limit, "--memory", self.memory_limit,
             "--pids-limit", str(self.pids_limit),
+            '--cap-drop=ALL','--security-opt=no-new-privileges','--tmpfs','/tmp:rw,size=256m',
             "--mount", mount, "--workdir", "/workspace",
         ]
+        command=list(invocation.argv)
+        rules=Path(__file__).resolve().parents[3]/'rules'
+        for i,value in enumerate(command[1:],1):
+            path=Path(value)
+            if path.is_absolute() and path.is_file() and path.resolve().is_relative_to(rules.resolve()):
+                argv+=['--mount',f'type=bind,source={path.resolve()},target=/qc-rules/{path.name},readonly']
+                command[i]='/qc-rules/'+path.name
+        argv+=['--env','HOME=/tmp','--env','SEMGREP_SEND_METRICS=off','--env','SEMGREP_ENABLE_VERSION_CHECK=0']
         for name, value in {**invocation.environment, **environment}.items():
             argv.extend(["--env", f"{name}={value}"])
-        argv.extend([image, *invocation.argv])
+        argv.extend(['--entrypoint',command[0],image,*command[1:]])
         process = subprocess.run(
             argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False,
             timeout=timeout_seconds, check=False,

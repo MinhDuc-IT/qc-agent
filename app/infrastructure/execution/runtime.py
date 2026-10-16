@@ -20,7 +20,8 @@ class RegisteredWorkerRuntime:
                                 "NO_COMPATIBLE_WORKER", "configuration", False)
         task.worker_id = adapter.worker_id
         task.implementation = adapter.implementation
-        if shutil.which(adapter.executable) is None:
+        available=getattr(self.backend,'available',None)
+        if not (available(adapter.executable) if available else shutil.which(adapter.executable) is not None):
             return self._failed(
                 task, adapter.worker_id, adapter.implementation,
                 f"Required executable is unavailable: {adapter.executable}",
