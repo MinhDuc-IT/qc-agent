@@ -1,0 +1,6 @@
+# Opt-in only on a dedicated test worker VM. Never enabled by the default stack.
+services:
+  integration:
+    cap_add: [BPF, PERFMON, NET_ADMIN, SYS_RESOURCE, SYS_PTRACE]
+    volumes:
+      - /sys/kernel/tracing:/sys/kernel/tracing:ro

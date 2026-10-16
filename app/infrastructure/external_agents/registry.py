@@ -22,8 +22,9 @@ class ExternalAgentRegistry:
     def resolve(self, task: WorkerTask) -> ExternalAgentManifest | None:
         candidates = [
             manifest for manifest in self.manifests
-            if task.capability in manifest.capabilities
+            if manifest.enabled and task.capability in manifest.capabilities
             and task.target.type in manifest.supported_targets
+            and (not task.worker_id or task.worker_id==manifest.agent_id)
         ]
         return candidates[0] if candidates else None
 

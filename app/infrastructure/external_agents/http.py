@@ -2,6 +2,7 @@ import os
 import time
 from pathlib import Path
 from pathlib import PurePosixPath
+from urllib.parse import urlsplit,urlunsplit
 
 import httpx
 
@@ -17,9 +18,19 @@ class HttpExternalAgentTransport:
         source_ref = str(workspace)
         if manifest.source_root:
             source_ref = str(PurePosixPath(manifest.source_root) / workspace.name)
+        wire_task=task.model_copy(deep=True)
+        if manifest.target_host_override and task.target.ref:
+            parts=urlsplit(task.target.ref)
+            if parts.scheme in ('http','https') and parts.hostname in ('localhost','127.0.0.1','::1') and parts.username is None:
+                host=manifest.target_host_override+(':'+str(parts.port) if parts.port else '')
+                wire_task.target.ref=urlunsplit((parts.scheme,host,parts.path,parts.query,parts.fragment))
+                feature=wire_task.parameters.get('feature')
+                if isinstance(feature,str):wire_task.parameters['feature']='\n'.join(
+                    line.replace(task.target.ref,wire_task.target.ref) if line.lstrip().startswith('Given ') else line
+                    for line in feature.split('\n'))
         payload = {
             "schema_version": "1.0",
-            "task": task.model_dump(mode="json"),
+            "task": wire_task.model_dump(mode="json"),
             "project": project.model_dump(mode="json"),
             "source": {"type": "local_path", "ref": source_ref},
         }

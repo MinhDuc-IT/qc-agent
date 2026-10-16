@@ -1,0 +1,38 @@
+name: agent-qc-workers
+services:
+  functional:
+    image: agent-qc-hercules:local
+    build:
+      context: ..
+      dockerfile: workers/functional_hercules/Dockerfile
+    environment:
+      HERCULES_LLM_API_KEY: ${HERCULES_LLM_API_KEY:?Configure HERCULES_LLM_API_KEY}
+      HERCULES_LLM_MODEL: ${HERCULES_LLM_MODEL:-gpt-4o-mini}
+      HERCULES_AGENT_TOKEN: ${FUNCTIONAL_AGENT_TOKEN:?Configure FUNCTIONAL_AGENT_TOKEN}
+      HERCULES_ALLOWED_SOURCE_ROOT: /workspaces
+      HERCULES_WORK_ROOT: /artifacts
+    ports: ["127.0.0.1:8101:8101"]
+    volumes: ["../../.agent-qc-workspaces:/workspaces:ro", "../.data/worker-artifacts/hercules:/artifacts"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+  integration:
+    image: agent-qc-keploy:local
+    build:
+      context: ..
+      dockerfile: workers/integration_keploy/Dockerfile
+    environment:
+      KEPLOY_ALLOWED_SOURCE_ROOT: /workspaces
+      KEPLOY_AGENT_TOKEN: ${INTEGRATION_AGENT_TOKEN:?Configure INTEGRATION_AGENT_TOKEN}
+    ports: ["127.0.0.1:8102:8102"]
+    volumes: ["../../.agent-qc-workspaces:/workspaces"]
+  performance:
+    image: agent-qc-k6:local
+    build:
+      context: ..
+      dockerfile: workers/performance_k6/Dockerfile
+    environment:
+      K6_ALLOWED_SOURCE_ROOT: /workspaces
+      K6_WORK_ROOT: /artifacts
+      K6_AGENT_TOKEN: ${PERFORMANCE_AGENT_TOKEN:?Configure PERFORMANCE_AGENT_TOKEN}
+    ports: ["127.0.0.1:8104:8104"]
+    volumes: ["../../.agent-qc-workspaces:/workspaces:ro", "../.data/worker-artifacts/k6:/artifacts"]
+    extra_hosts: ["host.docker.internal:host-gateway"]

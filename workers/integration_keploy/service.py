@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import hashlib
+import yaml
 from pathlib import Path
 
 from app.domain.models import Finding, WorkerResult
@@ -8,7 +10,7 @@ from workers.common import (AgentRequest, CommandRuns, PreparedCommand, create_a
                             env_path)
 
 
-VERSION = "3.8.58"
+VERSION = "3.6.126"
 EXECUTABLE = os.getenv("KEPLOY_EXECUTABLE", "keploy")
 
 
@@ -40,7 +42,8 @@ def prepare(request: AgentRequest, run_id: str) -> PreparedCommand:
                            remove_environment=("OPENAI_API_KEY", "STRIX_LLM_API_KEY",
                                                "HERCULES_LLM_API_KEY"),
                            metadata={"test_path": str(tests),
-                                     "keploy_root": str(keploy_root)})
+                                     "keploy_root": str(keploy_root),
+                                     "before_reports":{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in tests.rglob('*.yaml') if 'reports' in p.relative_to(tests).parts}})
 
 
 def parse(request: AgentRequest, exit_code: int, output: str,
@@ -52,14 +55,35 @@ def parse(request: AgentRequest, exit_code: int, output: str,
             category="integration", title="Keploy replay failed",
             message="One or more recorded API interactions did not match. See worker output/report.",
         ))
-    reports = list(Path(prepared.metadata["test_path"]).rglob("reports/*.yaml"))
+    root=Path(prepared.metadata['test_path'])
+    reports=[p for p in root.rglob('*.yaml') if 'reports' in p.relative_to(root).parts]
+    observations=[]
+    for path in reports:
+        raw=path.read_bytes()
+        if prepared.metadata.get('before_reports',{}).get(str(path))==hashlib.sha256(raw).hexdigest():continue
+        if len(raw)>5_000_000:continue
+        try:data=yaml.safe_load(raw)
+        except yaml.YAMLError:continue
+        if not isinstance(data,dict):continue
+        for test in data.get('tests',[]):
+            if not isinstance(test,dict):continue
+            match=test.get('result') or {};body=match.get('body_result') or []
+            observed_request=test.get('req') or {}
+            observations.append({'test_case_id':test.get('test_case_id'),'request':{key:observed_request.get(key) for key in ('method','url','body')},
+                'status':test.get('status'),'status_code':(match.get('status_code') or {}).get('actual'),
+                'body':body[0].get('actual') if len(body)==1 and isinstance(body[0],dict) else None})
+    completed=bool(observations) and all(r['status'] in ('PASSED','FAILED') and type(r['status_code']) is int and 100<=r['status_code']<=599 for r in observations)
+    product_failure=completed and any(r['status']=='FAILED' for r in observations)
+    if not product_failure:findings=[]
+    reason='' if completed else 'Keploy không có replay report mới hợp lệ; đây là lỗi môi trường hoặc instrumentation.'
+    if 'kernel privileges' in output:reason='Keploy cần kernel eBPF capabilities trong worker Linux cô lập.'
     return WorkerResult(
         task_id=request.task.task_id, run_id=request.task.run_id,
         capability=request.task.capability, worker_id="keploy-oss",
         implementation=f"keploy@{VERSION}", worker_kind="external_agent",
-        execution_status="completed", verdict="pass" if exit_code == 0 else "fail",
+        execution_status="completed" if completed else "failed", verdict="fail" if product_failure else "pass" if completed and exit_code==0 else "unknown",
         exit_code=exit_code, output=output[-12000:],
-        summary={"reports": len(reports), "cloud_ai_enabled": False}, findings=findings,
+        summary={"reports": len(reports), "cloud_ai_enabled": False,"observations":observations,"reason":reason}, findings=findings,
     )
 
 

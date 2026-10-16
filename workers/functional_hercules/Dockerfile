@@ -1,9 +1,10 @@
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 
 WORKDIR /service
 COPY workers/functional_hercules/requirements.txt /service/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt \
-    && playwright install --with-deps chromium
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir -r requirements.txt
+RUN playwright install --with-deps chromium
 COPY app /service/app
 COPY workers /service/workers
 

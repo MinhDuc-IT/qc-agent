@@ -1,0 +1,36 @@
+version: '1.1'
+agents:
+  - agent_id: functional-testing-agent
+    name: TestZeus Hercules Functional Agent
+    version: 1.0.2
+    capabilities: [functional.api, functional.e2e]
+    supported_targets: [openapi, http_service, web_app]
+    endpoint: http://127.0.0.1:8101
+    source_root: /workspaces
+    target_host_override: host.docker.internal
+    auth_secret_ref: secret://FUNCTIONAL_AGENT_TOKEN
+    timeout_seconds: 900
+    fallback_to_tools: false
+  - agent_id: integration-keploy-agent
+    name: Keploy OSS Integration Agent
+    version: 3.6.126
+    enabled: false
+    blocked_reason: Keploy replay requires eBPF on a dedicated worker VM; disabled on Docker Desktop.
+    capabilities: [integration.service, contract.consumer_provider]
+    supported_targets: [repository, http_service, service_graph]
+    endpoint: http://127.0.0.1:8102
+    source_root: /workspaces
+    auth_secret_ref: secret://INTEGRATION_AGENT_TOKEN
+    timeout_seconds: 1200
+    fallback_to_tools: false
+  - agent_id: performance-k6-agent
+    name: Performance Agent with k6
+    version: 2.3.0
+    capabilities: [performance.smoke, performance.load, performance.stress, performance.soak]
+    supported_targets: [http_service]
+    endpoint: http://127.0.0.1:8104
+    source_root: /workspaces
+    target_host_override: host.docker.internal
+    auth_secret_ref: secret://PERFORMANCE_AGENT_TOKEN
+    timeout_seconds: 3600
+    fallback_to_tools: false
