@@ -183,6 +183,7 @@ class TestWorkspace(Contract):
     automation_job_diagnostic: dict | None = None
     execution_profiles: list[ExecutionProfile] = Field(default_factory=list)
     worker_artifacts: dict[str,WorkerArtifactBinding] = Field(default_factory=dict)
+    qc_enrollment: dict[str,dict] = Field(default_factory=dict)
     @field_validator('knowledge',mode='before')
     @classmethod
     def accept_analysis_model(cls,value):

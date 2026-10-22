@@ -15,15 +15,15 @@ def test_enable_qc_prepares_confirms_and_activates_without_mapping_click(flow_ap
     assert done.status=='completed',done.error_message
     current=store.get_workspace(project.project_id)
     assert [c.model_dump() for c in current.cases]==before
-    assert current.worker_artifacts[case.id].state=='validated'
-    assert current.worker_artifacts[case.id].reviewer
+    assert current.qc_enrollment[case.id]['status']=='awaiting_qc'
+    assert current.worker_artifacts[case.id].state=='proposed'
     active=store.get_project(project.project_id)
     assert active.active_baseline==done.baseline_version
     assert active.current_job_id==job.job_id
     assert active.state=='active'
 
 
-def test_enable_qc_never_activates_failed_preflight_or_changes_approved_case(flow_app,tmp_path,monkeypatch):
+def test_enable_qc_accepts_description_when_tda_preflight_lacks_environment(flow_app,tmp_path,monkeypatch):
     from app.infrastructure.test_design import pytest_builder
     from app.domain.models import WorkerResult
     client,store,project,engine,path,headers,w,case,root=prepare_pytest(flow_app,tmp_path)
@@ -42,8 +42,8 @@ def test_enable_qc_never_activates_failed_preflight_or_changes_approved_case(flo
         'version':w.version,'action':'enable_qc','case_ids':[case.id],'reason':'Test blocked activation','acknowledge_gaps':True})
     assert response.status_code==202,response.text
     job=store.claim_job();asyncio.run(engine.execute(job))
-    assert store.get_job(job.job_id).status=='partial'
-    assert not store.get_project(project.project_id).active_baseline
+    assert store.get_job(job.job_id).status=='completed'
+    assert store.get_project(project.project_id).active_baseline
     assert store.get_workspace(project.project_id).cases==w.cases
 
 
@@ -51,6 +51,7 @@ def test_enable_qc_publishes_only_passing_subset_with_explicit_consent(flow_app,
     from tda.domain.worker_artifacts import PytestDraft
     client,store,project,engine,path,headers,w,case,root=prepare_pytest(flow_app,tmp_path)
     other=w.cases[0].model_copy(deep=True);other.id='BLOCKED';w.cases.append(other)
+    other.kind='performance'
     w.flow_modules[0]['case_ids'].append(other.id)
     w=store.save_workspace(w,w.version,'test','add_blocked')
     class MissingCapability:
@@ -66,7 +67,8 @@ def test_enable_qc_publishes_only_passing_subset_with_explicit_consent(flow_app,
     done=store.get_job(job.job_id)
     assert done.status=='partial' and done.baseline_version,done.error_message
     publications=store.workspace_publications(project.project_id)
-    assert publications[0]['executed_case_ids']==[case.id]
+    assert publications[0]['executed_case_ids']==[]
+    assert publications[0]['scheduled_case_ids']==[case.id]
     assert publications[0]['automation_exclusions'][0]['case_id']==other.id
 
 
@@ -76,6 +78,21 @@ def test_enable_qc_requires_approved_cases_and_explicit_endpoint(flow_app,tmp_pa
     assert response.status_code==409
     response=client.post(path+'/workspace/enable-qc',headers=headers,json={'version':w.version,'action':'enable_qc','case_ids':[case.id]})
     assert response.status_code==422
+
+
+def test_enable_keeps_reviewed_source_snapshot_when_default_branch_advances(flow_app,tmp_path):
+    client,store,project,engine,path,headers,w,case,root=prepare_pytest(flow_app,tmp_path)
+    async def newer_source(*args):return {'sha':'revision2','repository':{'id':20,'full_name':'owner/project','default_branch':'main'}}
+    engine.github.describe_repository=newer_source
+    response=client.post(path+'/workspace/enable-qc',headers=headers,json={
+        'version':w.version,'case_ids':[case.id],'reason':'Use reviewed oracle against later source','acknowledge_gaps':True})
+    assert response.status_code==202,response.text
+    job=store.claim_job();asyncio.run(engine.execute(job))
+    done=store.get_job(job.job_id)
+    assert done.status=='completed',done.error_message
+    baseline=store.get_baseline(project.project_id,done.baseline_version)
+    assert baseline.source_revision==w.source_revision=='revision1'
+    assert store.get_workspace(project.project_id).cases==w.cases
 
 
 def test_browser_primary_enable_action_preserves_selection_and_queues_job(flow_app,tmp_path):

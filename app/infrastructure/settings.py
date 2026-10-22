@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     agent_qc_agent_enabled: bool = True
     openai_api_key: str | None = None
     openai_model: str = "gpt-6-astra"
+    agent_qc_case_max_calls:int=Field(default=12,ge=2,le=100)
     agent_qc_external_agents_file: Path | None = Path("external-agents.yaml")
     agent_qc_execution_backend: str = "local"
     agent_qc_docker_images_file: Path | None = Path("docker-images.yaml")

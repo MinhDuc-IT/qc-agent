@@ -89,16 +89,20 @@ class Orchestrator:
             target_tasks = [task for task in run.plan.tasks
                             if CATALOG[task.capability].needs_running_target]
             if target_tasks:
-                if self.target_provisioner is None:
-                    raise RuntimeError("TARGET_UNAVAILABLE: target provisioner is disabled")
                 if self.target_lock is not None:
                     await self.target_lock.acquire()
                     target_locked = True
-                target = await asyncio.to_thread(
-                    self.target_provisioner.provision, run, run.analysis, workspace
-                )
+                try:
+                    if self.target_provisioner is None:raise RuntimeError('TARGET_UNAVAILABLE: target provisioner is disabled')
+                    target = await asyncio.to_thread(
+                        self.target_provisioner.provision, run, run.analysis, workspace
+                    )
+                except Exception as error:
+                    if any(not task.parameters.get('reviewed_cases') for task in target_tasks):raise
+                    for task in target_tasks:task.parameters['target_blocked']=str(error)
+                    target=None
                 for task in target_tasks:
-                    if task.target.type in {target.type, "http_service", "web_app", "ai_service"}:
+                    if target is not None and task.target.type in {target.type, "http_service", "web_app", "ai_service"}:
                         task.target.ref = target.ref
             run.status = "running"
             self.store.save_run(run)

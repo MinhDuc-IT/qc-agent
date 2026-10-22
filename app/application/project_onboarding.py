@@ -65,6 +65,14 @@ class ManagedBaselineBinding:
             return
         needs_service=True
         baseline=self.store.get_baseline(project.project_id,project.active_baseline) if project.active_baseline else None
+        if baseline and baseline.execution_kind=='reviewed_cases':
+            from ..infrastructure.test_design.reviewed_baselines import load_reviewed
+            try:
+                packets,_=load_reviewed(Path(baseline.baseline_dir),baseline.version)
+                needs_service=any(p.worker=='hercules' for p in packets)
+                run.analysis.config['reviewed_regression_catalog']=[{'case_id':p.case.id,'title':p.case.title,
+                    'requirement_ids':p.case.requirement_ids,'paths':p.module_paths,'worker':p.worker} for p in packets]
+            except (OSError,ValueError):needs_service=False
         if baseline and baseline.execution_kind=='worker_artifacts':
             from ..infrastructure.test_design.artifact_baselines import load_bundle
             try:
@@ -99,6 +107,37 @@ class ManagedBaselineBinding:
         selected = projects[0]
         needs_service=True
         baseline=self.store.get_baseline(binding['project_id'],binding['version'])
+        if baseline and baseline.execution_kind=='reviewed_cases':
+            from ..infrastructure.test_design.reviewed_baselines import load_reviewed
+            try:packets,_=load_reviewed(Path(baseline.baseline_dir),baseline.version)
+            except (OSError,ValueError) as error:
+                run.results.append(WorkerResult(task_id='reviewed-integrity-'+run.run_id,run_id=run.run_id,
+                    capability='unit.run',worker_id='reviewed-case-workers',worker_kind='managed_agent',
+                    execution_status='failed',verdict='unknown',output=str(error)));return
+            # Regression intent is pinned. Diff-based exploration stays separate.
+            run.plan.tasks=[t for t in run.plan.tasks if not t.parameters.get('reviewed_cases')]
+            for task in run.plan.tasks:
+                task.parameters['test_source']='existing' if task.capability=='unit.run' else 'pr_diff'
+                task.parameters['baseline_case_ids']=[p.case.id for p in packets]
+                task.parameters['covered_scenarios']=[p.case.title for p in packets]
+                if task.capability!='unit.run' and task.scope.get('scenarios'):
+                    titles={' '.join(p.case.title.casefold().split()) for p in packets}
+                    task.scope['scenarios']=[s for s in task.scope['scenarios'] if ' '.join(str(s).casefold().split()) not in titles]
+                    if not task.scope['scenarios'] and task.capability in ('functional.api','functional.e2e'):
+                        task.parameters['covered_by_reviewed_baseline']=True
+            run.plan.tasks=[t for t in run.plan.tasks if not t.parameters.get('covered_by_reviewed_baseline')]
+            # Keep the full approved regression suite by default; diff is context, not permission to omit it.
+            for worker,capability in sorted({(p.worker,p.worker_capability) for p in packets}):
+                ids=[p.case.id for p in packets if p.worker==worker and p.worker_capability==capability]
+                run.plan.tasks.append(WorkerTask(run_id=run.run_id,capability=capability if worker=='hercules' else 'unit.run',
+                    objective='Run immutable reviewed regression cases',execution_preference='tool',timeout_seconds=900,
+                    target=TaskTarget(type=('web_app' if capability=='functional.e2e' else 'http_service') if worker=='hercules' else 'repository',project_id=selected.id),
+                    scope={'case_ids':ids},parameters={'reviewed_cases':True,'test_source':'tda_baseline','case_ids':ids,
+                        'managed_project_id':binding['project_id'],'baseline_version':binding['version'],
+                        'installation_id':run.trigger_context.installation.id,'repository':run.trigger_context.repository.full_name,
+                        'allow_mutations':binding['allow_mutations'],'changed_files':run.analysis.changed_files,
+                        'trigger_type':run.trigger_context.trigger.event}))
+            return
         if baseline and baseline.execution_kind=='worker_artifacts':
             from ..infrastructure.test_design.artifact_baselines import load_bundle
             try:_,plans=load_bundle(baseline.baseline_dir,baseline.version)

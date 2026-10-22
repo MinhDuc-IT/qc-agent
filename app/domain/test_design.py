@@ -63,7 +63,7 @@ class DesignJob(BaseModel):
 
 
 class ManagedBaseline(BaseModel):
-    execution_kind: Literal['legacy','worker_artifacts']='legacy'
+    execution_kind: Literal['legacy','worker_artifacts','reviewed_cases']='legacy'
     project_id: str
     version: str
     job_id: str

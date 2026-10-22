@@ -4,6 +4,7 @@ import hashlib
 import os
 import shutil
 import subprocess
+import sys
 import threading
 from pathlib import Path
 from typing import Any
@@ -52,6 +53,23 @@ def _safe_name(value: str) -> str:
 
 
 def build_feature(task: WorkerTask) -> str:
+    if task.parameters.get('reviewed_case'):
+        import json
+        from tda.domain.case_execution import ReviewedCasePacket
+        packet=ReviewedCasePacket.model_validate(task.parameters['reviewed_case'])
+        target=task.target.ref
+        parsed=urlparse(target or '')
+        if parsed.scheme not in ('http','https') or not parsed.netloc or '\n' in target:raise ValueError('Reviewed case needs a test target URL')
+        lines=['Feature: Immutable reviewed case '+packet.case.id]
+        for i,step in enumerate(packet.case.steps):
+            for j,expected in enumerate(step.expected_results):
+                identity=reviewed_scenario_id(packet.case.id,i,j)
+                lines+=['',f'  Scenario: {identity}','    Given I open the test target '+json.dumps(target),
+                    '    And I prepare these isolated preconditions without production data: '+json.dumps(packet.case.preconditions,ensure_ascii=False),
+                    '    And I use these approved test data: '+json.dumps([p.model_dump() for p in packet.case.test_data],ensure_ascii=False)]
+                lines+=['    When I perform this approved action: '+json.dumps(s.action,ensure_ascii=False) for s in packet.case.steps[:i+1]]
+                lines+=['    Then I verify this exact expected result without changing it: '+json.dumps(expected.model_dump(),ensure_ascii=False)]
+        return '\n'.join(lines)+'\n'
     supplied = task.parameters.get("feature")
     if isinstance(supplied, str) and supplied.strip():
         return supplied.strip() + "\n"
@@ -77,7 +95,42 @@ def build_feature(task: WorkerTask) -> str:
     return "\n".join(lines)
 
 
-def build_command(settings: HerculesSettings, project_base: Path) -> list[str]:
+def reviewed_scenario_id(case_id,step,expected):
+    return 'QC_'+hashlib.sha256(case_id.encode()).hexdigest()[:12]+f'_S{step}_E{expected}'
+
+
+def reviewed_evidence(task,output_dir):
+    from tda.domain.case_execution import ReviewedCasePacket
+    packet=ReviewedCasePacket.model_validate(task.parameters['reviewed_case'])
+    files=sorted(output_dir.rglob('*.xml'),key=lambda p:p.stat().st_mtime)
+    if not files:raise ValueError('Missing JUnit evidence')
+    items=[];observations={}
+    for path in files:
+        root=ElementTree.parse(path).getroot()
+        report=path.relative_to(output_dir).as_posix()+':sha256:'+hashlib.sha256(path.read_bytes()).hexdigest()
+        for c in root.iter('testcase'):
+            properties={p.get('name'):p.get('value') for p in c.findall('./properties/property')}
+            summary=properties.get('qc_assert_summary','')
+            status='blocked'
+            if properties.get('qc_is_assert')=='True' and summary and c.find('skipped') is None and c.find('error') is None:
+                if properties.get('qc_is_passed')=='True' and c.find('failure') is None:status='pass'
+                elif properties.get('qc_is_passed')=='False' and c.find('failure') is not None:status='defect'
+            signature=(status,summary)
+            observations.setdefault(c.get('name'),{})[signature]=(report,summary)
+    for i,step in enumerate(packet.case.steps):
+        for j,_ in enumerate(step.expected_results):
+            identity=reviewed_scenario_id(packet.case.id,i,j)
+            matches=observations.get(identity,{})
+            status='blocked';actual='Expected scenario missing or duplicated'
+            report='missing-scenario:'+identity
+            if len(matches)==1:
+                (status,_),(report,actual)=next(iter(matches.items()))
+            items.append({'expected_key':f'step:{i}/expected:{j}','status':status,'scenario_id':identity,'actual':actual,'execution_report':report})
+    return {'case_id':packet.case.id,'design_sha256':packet.design_sha256,'expected_results':items}
+
+
+def build_command(settings: HerculesSettings, project_base: Path,reviewed=False) -> list[str]:
+    if reviewed:return [sys.executable,'-m','workers.functional_hercules.reviewed_runner','--project-base',str(project_base)]
     return [settings.executable, "--project-base", str(project_base)]
 
 
@@ -125,6 +178,9 @@ class HerculesRuns:
         if len(scenarios) > self.settings.max_scenarios:
             raise ValueError(f"scenario limit exceeded ({len(scenarios)} > {self.settings.max_scenarios})")
         feature = build_feature(request.task)
+        if request.task.parameters.get('reviewed_case'):
+            actual_scenarios=sum(line.strip().startswith('Scenario:') for line in feature.splitlines())
+            if actual_scenarios>self.settings.max_scenarios:raise ValueError('Reviewed case exceeds Hercules scenario capability limit')
         step_count = sum(
             line.lstrip().startswith(("Given ", "When ", "Then ", "And ", "But "))
             for line in feature.splitlines()
@@ -184,7 +240,7 @@ class HerculesRuns:
             })
             timeout = min(task.timeout_seconds, self.settings.max_runtime)
             process = subprocess.Popen(
-                build_command(self.settings, run_root), cwd=Path(request.source.ref).resolve(),
+                build_command(self.settings, run_root,reviewed=bool(task.parameters.get('reviewed_case'))), cwd=Path(request.source.ref).resolve(),
                 env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                 encoding="utf-8", errors="replace", shell=False,
             )
@@ -203,6 +259,8 @@ class HerculesRuns:
                     return
             try:
                 totals, findings = parse_junit(output_dir)
+                if task.parameters.get('reviewed_case'):
+                    totals['case_evidence']=reviewed_evidence(task,output_dir)
                 verdict = "fail" if totals["failures"] + totals["errors"] else "pass"
                 result = WorkerResult(
                     task_id=task.task_id, run_id=task.run_id, capability=task.capability,
@@ -248,8 +306,10 @@ def authorize(authorization: str | None) -> None:
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "agent": "testzeus-hercules", "version": "1.0.2"}
+def health() -> dict[str, Any]:
+    return {"status": "ok", "agent": "testzeus-hercules", "version": "1.0.2",
+        'input_formats':['gherkin','reviewed-case-1'],'evidence_protocol':'expected-result-junit-1',
+        'max_scenarios':settings.max_scenarios,'max_steps':settings.max_steps}
 
 
 @app.post("/v1/tasks", status_code=status.HTTP_202_ACCEPTED)

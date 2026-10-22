@@ -50,6 +50,13 @@ class ManagedDesignEngine:
         for doc in docs:
             if doc.path.startswith('workspace://'):
                 tools.observed[doc.id]=[doc.content]
+        if action=='enable_qc':
+            if not previous:raise ValueError('No reviewed workspace')
+            from .execution_profiles import discover_profiles
+            updated=previous.model_copy(deep=True)
+            updated.execution_profiles=discover_profiles(tools)
+            updated.generation_job_id=job.job_id
+            return updated
         agent=self.agent_factory(artifacts) if self.agent_factory else OpenAIStructuredAgent(
             self.settings.tda_openai_api_key,self.settings.agent_qc_tda_model or self.settings.openai_model,artifacts,
             max_calls=self.settings.agent_qc_tda_max_calls,max_output_tokens=self.settings.agent_qc_tda_max_output_tokens,
@@ -117,13 +124,13 @@ class ManagedDesignEngine:
             project=self.store.get_project(job.project_id)
             if self.stopped(job):job.status='superseded';return
             if job.attempts>3:raise ValueError('Job đã vượt số lần recovery cho phép.')
-            if not self.agent_factory and not self.settings.tda_openai_api_key:raise ValueError('Quản trị cần cấu hình TDA_OPENAI_API_KEY riêng.')
+            if (job.workspace_request or {}).get('action')!='enable_qc' and not self.agent_factory and not self.settings.tda_openai_api_key:raise ValueError('Quản trị cần cấu hình TDA_OPENAI_API_KEY riêng.')
             previous=self.store.get_workspace(project.project_id);expected=previous.version if previous else 0
             request=job.workspace_request or {}
             if request and request['version']!=expected:raise ValueError('Workspace đã thay đổi trước khi job bắt đầu.')
             metadata=await self.github.describe_repository(project.installation_id,project.repository.full_name)
             job.revision=metadata['sha']
-            if request.get('action') in ('review','ai_edit','bind','enable_qc') and previous and previous.source_revision!=job.revision:
+            if request.get('action') in ('review','ai_edit','bind') and previous and previous.source_revision!=job.revision:
                 raise ValueError('Source thay đổi; dùng Cập nhật theo nguồn thay đổi trước.')
             self.store.save_job(job)
             run=QCRun(run_id='tda_'+job.job_id,trigger_context=TriggerContext(
@@ -149,14 +156,15 @@ class ManagedDesignEngine:
                 message=f'Chuẩn bị cho QC: {states.count("needs_review")} cases chờ xác nhận mapping; {states.count("needs_setup")} cần bổ sung điều kiện; {states.count("manual")} kiểm tra thủ công.'
                 if partial:message+=' Lượt chuẩn bị chưa hoàn tất; cases đã xử lý được giữ.'
             if request.get('action')=='enable_qc':
-                from .enable_qc import activation_candidates
-                from .workspace_publish import publish_workspace
+                from .case_routing import route_cases
+                from .reviewed_baselines import publish_reviewed
                 options=request.get('activation') or {}
                 if not options.get('reason'):raise ValueError('Missing explicit activation request')
-                ready,blocked=activation_candidates(updated,request.get('case_ids',[]),request['actor'])
+                packets,blocked=route_cases(updated,request.get('case_ids',[]),updated.execution_profiles,self.settings)
+                ready=[p.case.id for p in packets]
                 artifacts.write('activation_report.json',{'ready_case_ids':ready,'blocked_cases':blocked,'activated':False})
                 if ready and (not blocked or options.get('acknowledge_gaps')):
-                    publication,baseline=publish_workspace(self.settings,updated,ready,request['actor'],options['reason'],options.get('acknowledge_gaps',False),activate_qc=True)
+                    publication,baseline=publish_reviewed(self.settings,updated,packets,blocked,request['actor'],options['reason'],options.get('acknowledge_gaps',False))
                     publication['automation_exclusions']=blocked
                     updated=self.store.save_publication(updated,publication,request['actor'],baseline,activation_job_id=job.job_id)
                     job.baseline_version=baseline.version
@@ -167,6 +175,11 @@ class ManagedDesignEngine:
                     self.store.update_job_project(job,state='active',message=message)
                 else:
                     job.status='partial'
+                    for item in blocked:
+                        updated.qc_enrollment[item['case_id']]={'status':'unsupported','reason':item['reason'],
+                            'case_revision':next(c.revision for c in updated.cases if c.id==item['case_id'])}
+                    updated=self.store.save_workspace(updated,updated.version,request['actor'],'qc_routing_blocked',job_id=job.job_id)
+                    artifacts.write('test_workspace.json',updated.model_dump())
                     self.store.update_job_project(job,state='needs_changes',message=f'Chưa bật cho QC: {len(blocked)} cases bị chặn. Baseline đang dùng được giữ nguyên.')
                 return
             self.store.update_job_project(job,state='needs_changes' if partial else 'ready_for_review',message=message)

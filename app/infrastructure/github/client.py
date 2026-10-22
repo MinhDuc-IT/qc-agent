@@ -377,6 +377,10 @@ class GitHubClient:
     def _result_detail(result) -> str:
         parts = []
         for key, value in result.summary.items():
+            if key=='results' and isinstance(value,list):
+                parts.append('Cases: '+', '.join(f"{state.upper()}={sum(r.get('status')==state for r in value if isinstance(r,dict))}" for state in ('pass','defect','blocked')))
+                continue
+            if key=='case_evidence':continue
             if key in {"script", "test_path", "keploy_root"}:
                 continue
             label = {"passed": "Passed", "failed": "Failed",
@@ -463,6 +467,16 @@ class GitHubClient:
                 f"`{result.worker_id or 'unavailable'}` | "
                 f"{icons.get(result.verdict, '')} **{cls._verdict_label(result.verdict)}** | {detail} |"
             )
+        case_rows=[(r,item) for r in run.results for item in r.summary.get('results',[]) if item.get('source')=='tda_baseline']
+        if case_rows:
+            clean=lambda value:' '.join(str(value).splitlines()).replace('|','\\|')[:500]
+            lines+=['','### Regression cases đã duyệt','','| Case | Baseline | Worker | Kết quả | Expected results |','|---|---|---|---|---|']
+            for result,item in case_rows:
+                proof=item.get('expected_results',[])
+                evidence=f"{sum(e.get('status')=='pass' for e in proof)}/{len(proof)} PASS"
+                if item.get('reason'):evidence+=' · '+item['reason']
+                lines.append('| '+' | '.join(clean(v) for v in [item['case_id'],result.summary.get('baseline_version',''),item.get('worker_id',''),
+                    {'pass':'PASS','defect':'FAIL','blocked':'BLOCKED'}.get(item['status'],item['status']),evidence])+' |')
 
         mode = {"active": "Có AI hỗ trợ", "fallback": "Fallback theo bộ quy tắc"}.get(run.agent_mode, run.agent_mode)
         lines += ["", "### Phân tích của agent", "", f"**Chế độ:** {mode}"]

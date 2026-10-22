@@ -105,6 +105,7 @@ class WorkspaceStoreMixin:
                 (workspace.project_id,publication['version'],workspace.version,json.dumps(publication,ensure_ascii=False),time.time()))
             workspace.published_version=publication['version'];workspace.published_workspace_version=workspace.version
             workspace.last_changes={'published':publication['version'],'executed_case_ids':publication['executed_case_ids']}
+            if 'scheduled_case_ids' in publication:workspace.last_changes['scheduled_case_ids']=publication['scheduled_case_ids']
             workspace.version+=1
             if baseline:
                 baseline.state='approved';baseline.reviewer=actor

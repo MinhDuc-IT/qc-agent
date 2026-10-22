@@ -7,6 +7,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN playwright install --with-deps chromium
 COPY app /service/app
 COPY workers /service/workers
+COPY packages/test-design-agent /service/packages/test-design-agent
+RUN pip install --no-cache-dir --no-deps /service/packages/test-design-agent
 
 ENV PYTHONPATH=/service \
     HEADLESS=true \

@@ -8,9 +8,37 @@ from ...domain.models import Finding, WorkerResult
 
 
 class ManagedBaselineRuntime:
-    def __init__(self, store, root, settings=None):
+    def __init__(self, store, root, settings=None,case_agent_factory=None):
         self.store, self.root = store, root.resolve()
         self.settings=settings
+        self.case_agent_factory=case_agent_factory
+
+    def execute_reviewed(self,task,project,workspace,external_runtime=None):
+        try:
+            registered=self.store.get_project(task.parameters.get('managed_project_id'))
+            baseline=self.store.get_baseline(registered.project_id,task.parameters.get('baseline_version')) if registered else None
+            if not registered or not registered.enabled or not baseline or baseline.state!='approved' or baseline.execution_kind!='reviewed_cases':raise ValueError('Reviewed baseline unavailable')
+            if registered.installation_id!=task.parameters.get('installation_id') or registered.repository.full_name!=task.parameters.get('repository'):raise ValueError('Reviewed baseline repository mismatch')
+            directory=Path(baseline.baseline_dir).resolve()
+            if directory.parent!=self.root/'projects'/registered.project_id/'baselines' or directory.name!=baseline.version:raise ValueError('Reviewed baseline boundary mismatch')
+            from .reviewed_baselines import load_reviewed
+            from ..execution.reviewed_cases import run_reviewed
+            packets,context=load_reviewed(directory,baseline.version)
+            requested=task.parameters.get('case_ids')
+            if requested is not None:
+                if not set(requested)<={p.case.id for p in packets}:raise ValueError('Case scope outside pinned baseline')
+                packets=[p for p in packets if p.case.id in requested]
+            rows=run_reviewed(packets,context,workspace,self.settings,task,self.root,external_runtime,self.case_agent_factory)
+            blocked=not rows or any(r['status']=='blocked' for r in rows)
+            return WorkerResult(task_id=task.task_id,run_id=task.run_id,capability=task.capability,
+                worker_id='reviewed-case-workers',worker_kind='managed_agent',implementation='reviewed-case-1',
+                execution_status='failed' if blocked else 'completed',
+                verdict='fail' if any(r['status']=='defect' for r in rows) else 'unknown' if blocked else 'pass',
+                summary={'source':'tda_baseline','baseline_version':baseline.version,'results':rows})
+        except Exception as error:
+            return WorkerResult(task_id=task.task_id,run_id=task.run_id,capability=task.capability,
+                worker_id='reviewed-case-workers',worker_kind='managed_agent',execution_status='failed',verdict='unknown',
+                summary={'reason':str(error)},output='Reviewed case execution blocked')
 
     def execute_generated(self,task,project,workspace,external_runtime=None):
         try:

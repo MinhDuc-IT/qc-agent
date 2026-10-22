@@ -19,9 +19,10 @@ def infrastructure_blocked(output):
 
 
 class PytestArtifactBuilder:
-    def __init__(self,agent,tools,artifacts,settings,profiles,*,stopped=lambda:False,progress=lambda text:None,reuse_unavailable=False):
+    def __init__(self,agent,tools,artifacts,settings,profiles,*,stopped=lambda:False,progress=lambda text:None,reuse_unavailable=False,verify_source_snapshot=True,runtime_repair=True):
         self.agent=agent;self.tools=tools;self.artifacts=artifacts;self.settings=settings;self.profiles=profiles;self.stopped=stopped;self.progress=progress
         self.reuse_unavailable=reuse_unavailable
+        self.verify_source_snapshot=verify_source_snapshot;self.runtime_repair=runtime_repair
 
     def run(self,previous,case_ids,*,_runtime_repair=False):
         w=previous.model_copy(deep=True);w.execution_profiles=self.profiles;w.automation_job_diagnostic=None
@@ -42,7 +43,7 @@ class PytestArtifactBuilder:
             try:
                 paths={d.path for d in w.sources.documents if d.id in {e.source_id for s in case.steps for r in s.expected_results for e in r.evidence} and d.kind in ('code','existing_tests')}
                 for document in w.sources.documents:
-                    if document.path in paths and self.tools.snapshot(document.path).sha256!=document.sha256:
+                    if self.verify_source_snapshot and document.path in paths and self.tools.snapshot(document.path).sha256!=document.sha256:
                         raise ValueError('Source đã thay đổi; cập nhật test design trước khi chuẩn bị QC.')
                 paths.update(p for m in w.flow_modules if case.id in m['case_ids'] for p in m['scope']['entry_paths'] if p.endswith('.py'))
                 candidates=[p for p in self.profiles if any(path.startswith(p.root.rstrip('/')+'/') or p.root=='.' for path in paths)]
@@ -88,11 +89,15 @@ class PytestArtifactBuilder:
                         'Chép expected_key từ expected_catalog; assertion_sources là nguyên văn assert/pytest.raises trong code, server tự tính index và dòng. Expected results bất biến; không sửa oracle để pass. design_step/expected_result 0-based, assertion_lines 1-based. '
                         'Không assert True, skip, xfail hoặc nuốt exception. Không đọc secrets host, không dùng production URL/accounts. '
                         'Test environment dùng dữ liệu sandbox tạo riêng; fixtures có thể tạo user/DB state cần thiết theo conventions repo. '
+                        'Có thể bổ sung fixtures test-only trong chính test module, dùng APIs của repo và loopback Socket.IO peers thật nếu dependencies hỗ trợ. '
+                        'Không thay side effect đang kiểm tra bằng mock, không sửa production source hoặc expected result để PASS. '
                         'Nếu thiếu fixtures/capability thiết yếu, trả needs_setup hoặc manual với lý do; không giả lập thành công thay cho side effect phải kiểm chứng. '
                         'Mỗi case tự tạo tài khoản/dữ liệu sandbox cần thiết; không dùng tài khoản cố định chưa được tạo. '
                         'Sử dụng repair_feedback để sửa script/setup, không thay expected results đã duyệt. '
                         'Không thêm conftest riêng làm mất fixtures repo. Chỉ trả code Python, không markdown fences.',
-                        {'case':case.model_dump(),'expected_catalog':expected_catalog(case),'profile':profile.model_dump(),'sources':sources,'available_fixtures':fixtures,'repair_feedback':feedback,'previous_code':previous_code},PytestDraft)
+                        {'case':case.model_dump(),'expected_catalog':expected_catalog(case),'profile':profile.model_dump(),'sources':sources,'available_fixtures':fixtures,'repair_feedback':feedback,'previous_code':previous_code,
+                         'execution_phase':'tda_preflight' if self.verify_source_snapshot else 'qc_pr',
+                         'oracle_policy':'Reviewed expected results are immutable; PR source can contain regressions.'},PytestDraft)
                     state.update(status=draft.disposition,reason=draft.reason,prerequisites=draft.prerequisites)
                     if not draft.code or draft.disposition!='needs_review':
                         state['capability_blocked']=True
@@ -153,7 +158,7 @@ class PytestArtifactBuilder:
                 for binding in bindings:
                     binding.preflight={'status':'blocked','reason':str(error)}
                     w.automation_preparation[binding.case_id].update(status='needs_setup',reason='Chưa chạy được preflight pytest.',runtime_blockers=[str(error)],prerequisites=[str(error)])
-        if not _runtime_repair:
+        if self.runtime_repair and not _runtime_repair:
             retry=[case.id for case in selected if (binding:=w.worker_artifacts.get(case.id))
                    and not binding.validation_issues and binding.preflight.get('status') in ('blocked','defect')
                    and not infrastructure_blocked(binding.preflight.get('output','')+' '+binding.preflight.get('reason',''))]

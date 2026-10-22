@@ -77,6 +77,10 @@ Chuẩn bị lại giữ artifacts đã PASS nếu case hash và source revision
 
 ## Luồng Bật cho QC
 
+**Cập nhật:** luồng chính hiện publish test case mô tả cho worker QC, không bắt buộc script/preflight tại TDA.
+Xem [reviewed-case-execution.md](reviewed-case-execution.md). Phần quy trình dưới đây mô tả đường artifact đã chuẩn bị sẵn
+và baseline `worker_artifacts` cũ, vẫn được giữ để tương thích.
+
 Luồng chính: Sinh test → review/chỉnh sửa → Duyệt → Bật cho QC → tạo PR.
 `POST /workspace/enable-qc` tạo job có actor, case IDs, workspace version, lý do và chấp thuận coverage gap.
 Job tự chuẩn bị script và mapping, review độc lập, chạy preflight rồi lưu publication và kích hoạt baseline.
